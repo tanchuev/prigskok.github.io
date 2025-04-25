@@ -104,7 +104,39 @@ class GameScene extends Phaser.Scene {
         // Временные ресурсы для прототипа
         this.load.image('sky', 'https://labs.phaser.io/assets/skies/space3.png');
         this.load.image('ground', 'https://labs.phaser.io/assets/sprites/platform.png');
-        this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
+        
+        // Загрузка спрайтов игрока для анимаций
+        this.load.image('player_idle_0', 'assets/images/astronaut/idle__000.png');
+        this.load.image('player_idle_1', 'assets/images/astronaut/idle__001.png');
+        this.load.image('player_idle_2', 'assets/images/astronaut/idle__002.png');
+        this.load.image('player_idle_3', 'assets/images/astronaut/idle__003.png');
+        this.load.image('player_idle_4', 'assets/images/astronaut/idle__004.png');
+        this.load.image('player_idle_5', 'assets/images/astronaut/idle__005.png');
+        this.load.image('player_idle_6', 'assets/images/astronaut/idle__006.png');
+        this.load.image('player_idle_7', 'assets/images/astronaut/idle__007.png');
+        
+        // Анимация подготовки к прыжку
+        this.load.image('player_pre_0', 'assets/images/astronaut/pre__000.png');
+        this.load.image('player_pre_1', 'assets/images/astronaut/pre__001.png');
+        this.load.image('player_pre_2', 'assets/images/astronaut/pre__002.png');
+        this.load.image('player_pre_3', 'assets/images/astronaut/pre__003.png');
+        this.load.image('player_pre_4', 'assets/images/astronaut/pre__004.png');
+        this.load.image('player_pre_5', 'assets/images/astronaut/pre__005.png');
+        
+        // Анимация прыжка
+        this.load.image('player_jump_0', 'assets/images/astronaut/jump__000.png');
+        this.load.image('player_jump_1', 'assets/images/astronaut/jump__001.png');
+        this.load.image('player_jump_2', 'assets/images/astronaut/jump__002.png');
+        this.load.image('player_jump_3', 'assets/images/astronaut/jump__003.png');
+        this.load.image('player_jump_4', 'assets/images/astronaut/jump__004.png');
+        this.load.image('player_jump_5', 'assets/images/astronaut/jump__005.png');
+        this.load.image('player_jump_6', 'assets/images/astronaut/jump__006.png');
+        this.load.image('player_jump_7', 'assets/images/astronaut/jump__007.png');
+        this.load.image('player_jump_8', 'assets/images/astronaut/jump__008.png');
+        this.load.image('player_jump_9', 'assets/images/astronaut/jump__009.png');
+        this.load.image('player_jump_10', 'assets/images/astronaut/jump__010.png');
+        this.load.image('player_jump_11', 'assets/images/astronaut/jump__011.png');
+        this.load.image('player_jump_12', 'assets/images/astronaut/jump__012.png');
         
         // Загрузка звуковых файлов
         this.load.audio('jump', 'assets/sounds/jump.mp3');
@@ -186,8 +218,14 @@ class GameScene extends Phaser.Scene {
         this.lastPlatformY = 600;
         
         // Создание игрока
-        this.player = this.physics.add.sprite(400, this.initialPlayerY, 'player'); // Используем сохраненную позицию
+        this.player = this.physics.add.sprite(400, this.initialPlayerY, 'player_idle_0'); // Используем первый кадр анимации idle
         this.player.setBounce(0.2);
+        
+        // Устанавливаем размер спрайта как у предыдущего
+        this.player.setScale(0.3);
+
+        // Создаем анимации для игрока
+        this.createPlayerAnimations();
         
         // Сохраняем начальную позицию Y для расчета высоты
         this.initialPlayerY = this.player.y;
@@ -288,11 +326,6 @@ class GameScene extends Phaser.Scene {
         if (this.spaceKey && this.spaceKey.isDown) {
             this.jumpPressed = true;
         }
-        
-        // Исправляем дребезжание более простым способом
-        // Просто округляем позицию для отображения, не влияя на физику
-        this.player.x = Math.round(this.player.x);
-        this.player.y = Math.round(this.player.y);
         
         // Упрощаем логику следования камеры за игроком
         // Плавное следование камеры за игроком с определенным смещением вверх
@@ -422,6 +455,23 @@ class GameScene extends Phaser.Scene {
     }
 
     playerHitPlatform(player, platform) {
+        // Если игрок приземлился на платформу, проигрываем анимацию приземления
+        if (player.body.touching.down && 
+            (player.anims.currentAnim.key === 'jump' || 
+             !player.anims.isPlaying)) {
+            
+            // Проверяем направление движения для правильной анимации
+            if (player.body.velocity.x < 0) {
+                player.play('left');
+                player.setFlipX(true);
+            } else if (player.body.velocity.x > 0) {
+                player.play('right');
+                player.setFlipX(false);
+            } else {
+                player.play('idle');
+            }
+        }
+        
         // Обработка столкновения с разными типами платформ
         
         // Сбрасываем доступность двойного прыжка при касании любой платформы
@@ -593,6 +643,7 @@ class GameScene extends Phaser.Scene {
     playerMovement() {
         // Проверяем, находится ли игрок на земле
         const onGround = this.player.body.touching.down;
+        let isMoving = false;
         
         // Движение влево-вправо через клавиатуру или мобильное управление
         if (this.cursors.left.isDown || this.leftPressed) {
@@ -608,6 +659,13 @@ class GameScene extends Phaser.Scene {
             if (currentVelocity > targetVelocity) {
                 this.player.setVelocityX(Math.max(targetVelocity, currentVelocity - acceleration));
             }
+            
+            // Проигрываем анимацию движения влево и отражаем спрайт
+            if (onGround && this.player.anims.currentAnim.key !== 'left') {
+                this.player.play('left');
+                this.player.setFlipX(true);
+            }
+            isMoving = true;
         } else if (this.cursors.right.isDown || this.rightPressed) {
             // Учитываем множитель скорости от бонуса
             const speedMultiplier = this.player.speedMultiplier || 1;
@@ -621,10 +679,18 @@ class GameScene extends Phaser.Scene {
             if (currentVelocity < targetVelocity) {
                 this.player.setVelocityX(Math.min(targetVelocity, currentVelocity + acceleration));
             }
+            
+            // Проигрываем анимацию движения вправо и не отражаем спрайт
+            if (onGround && this.player.anims.currentAnim.key !== 'right') {
+                this.player.play('right');
+                this.player.setFlipX(false);
+            }
+            isMoving = true;
         } else {
             // Если игрок на скользкой платформе, не останавливаем его полностью
             if (this.player.body.friction && this.player.body.friction.x < 0.2) {
                 this.player.setVelocityX(this.player.body.velocity.x * 0.95);
+                isMoving = Math.abs(this.player.body.velocity.x) > 20;
             } else {
                 // Плавное замедление вместо резкой остановки
                 const currentVelocity = this.player.body.velocity.x;
@@ -632,11 +698,19 @@ class GameScene extends Phaser.Scene {
                 
                 if (Math.abs(currentVelocity) < deceleration) {
                     this.player.setVelocityX(0);
+                    isMoving = false;
                 } else if (currentVelocity > 0) {
                     this.player.setVelocityX(currentVelocity - deceleration);
+                    isMoving = true;
                 } else {
                     this.player.setVelocityX(currentVelocity + deceleration);
+                    isMoving = true;
                 }
+            }
+            
+            // Если игрок на земле и не двигается, проигрываем анимацию бездействия
+            if (onGround && !isMoving && this.player.anims.currentAnim.key !== 'idle') {
+                this.player.play('idle');
             }
         }
         
@@ -644,9 +718,72 @@ class GameScene extends Phaser.Scene {
         const currentTime = Date.now();
         if (this.jumpPressed) {
             if (currentTime > this.lastJumpTime + this.jumpCooldown) {
+                // Сразу пытаемся выполнить прыжок
                 if (this.playerAbilities.handleJump()) {
                     this.lastJumpTime = currentTime;
+                    
+                    // Проигрываем анимацию в зависимости от состояния
+                    if (onGround) {
+                        // На земле сначала анимация подготовки, потом прыжка
+                        this.player.play('pre_jump');
+                        this.player.once('animationcomplete', () => {
+                            this.player.play('jump');
+                        });
+                    } else {
+                        // В воздухе сразу анимация прыжка
+                        this.player.play('jump');
+                    }
                 }
+            }
+        }
+        
+        // Обновляем анимации в зависимости от состояния
+        this.updatePlayerAnimation(onGround, isMoving);
+    }
+    
+    updatePlayerAnimation(onGround, isMoving) {
+        // Если игрок в воздухе и не в анимации прыжка или подготовки к прыжку
+        if (!onGround && 
+            this.player.anims.currentAnim.key !== 'jump' && 
+            this.player.anims.currentAnim.key !== 'pre_jump') {
+            
+            // Определяем, движется ли игрок вверх или вниз
+            if (this.player.body.velocity.y < 0) {
+                // Если движется вверх, воспроизводим первую половину анимации прыжка
+                if (this.player.anims.currentAnim.key !== 'jump') {
+                    this.player.play('jump');
+                    // Останавливаем анимацию на кадре, соответствующем подъему
+                    this.player.anims.pause(this.player.anims.currentAnim.frames[4]);
+                }
+            } else {
+                // Если движется вниз, воспроизводим вторую половину анимации прыжка
+                if (this.player.anims.currentAnim.key !== 'jump') {
+                    this.player.play('jump');
+                    // Останавливаем анимацию на кадре, соответствующем падению
+                    this.player.anims.pause(this.player.anims.currentAnim.frames[9]);
+                }
+            }
+        } 
+        // Когда игрок приземляется
+        else if (onGround && 
+                (this.player.anims.currentAnim.key === 'jump' || 
+                 this.player.anims.currentAnim.key === 'pre_jump' || 
+                 !this.player.anims.isPlaying)) {
+            
+            if (isMoving) {
+                // Если двигается влево
+                if (this.player.body.velocity.x < 0) {
+                    this.player.play('left');
+                    this.player.setFlipX(true);
+                } 
+                // Если двигается вправо
+                else if (this.player.body.velocity.x > 0) {
+                    this.player.play('right');
+                    this.player.setFlipX(false);
+                }
+            } else {
+                // Если стоит на месте
+                this.player.play('idle');
             }
         }
     }
@@ -912,5 +1049,98 @@ class GameScene extends Phaser.Scene {
         }
         
         return platform;
+    }
+
+    createPlayerAnimations() {
+        // Анимация бездействия (idle)
+        this.anims.create({
+            key: 'idle',
+            frames: [
+                { key: 'player_idle_0' },
+                { key: 'player_idle_1' },
+                { key: 'player_idle_2' },
+                { key: 'player_idle_3' },
+                { key: 'player_idle_4' },
+                { key: 'player_idle_5' },
+                { key: 'player_idle_6' },
+                { key: 'player_idle_7' }
+            ],
+            frameRate: 10,
+            repeat: -1
+        });
+        
+        // Анимация подготовки к прыжку
+        this.anims.create({
+            key: 'pre_jump',
+            frames: [
+                { key: 'player_pre_0' },
+                { key: 'player_pre_1' },
+                { key: 'player_pre_2' },
+                { key: 'player_pre_3' },
+                { key: 'player_pre_4' },
+                { key: 'player_pre_5' }
+            ],
+            frameRate: 12,
+            repeat: 0
+        });
+        
+        // Анимация прыжка
+        this.anims.create({
+            key: 'jump',
+            frames: [
+                { key: 'player_jump_0' },
+                { key: 'player_jump_1' },
+                { key: 'player_jump_2' },
+                { key: 'player_jump_3' },
+                { key: 'player_jump_4' },
+                { key: 'player_jump_5' },
+                { key: 'player_jump_6' },
+                { key: 'player_jump_7' },
+                { key: 'player_jump_8' },
+                { key: 'player_jump_9' },
+                { key: 'player_jump_10' },
+                { key: 'player_jump_11' },
+                { key: 'player_jump_12' }
+            ],
+            frameRate: 15,
+            repeat: 0
+        });
+        
+        // Анимация движения влево (используем те же спрайты idle, но отраженные)
+        this.anims.create({
+            key: 'left',
+            frames: [
+                { key: 'player_idle_0' },
+                { key: 'player_idle_1' },
+                { key: 'player_idle_2' },
+                { key: 'player_idle_3' },
+                { key: 'player_idle_4' },
+                { key: 'player_idle_5' },
+                { key: 'player_idle_6' },
+                { key: 'player_idle_7' }
+            ],
+            frameRate: 10,
+            repeat: -1
+        });
+        
+        // Анимация движения вправо (те же спрайты idle)
+        this.anims.create({
+            key: 'right',
+            frames: [
+                { key: 'player_idle_0' },
+                { key: 'player_idle_1' },
+                { key: 'player_idle_2' },
+                { key: 'player_idle_3' },
+                { key: 'player_idle_4' },
+                { key: 'player_idle_5' },
+                { key: 'player_idle_6' },
+                { key: 'player_idle_7' }
+            ],
+            frameRate: 10,
+            repeat: -1
+        });
+        
+        // Начальная анимация
+        this.player.play('idle');
     }
 } 

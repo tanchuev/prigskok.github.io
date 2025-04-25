@@ -216,45 +216,24 @@ class PlayerAbilities {
     
     // Обработка нажатия на кнопку прыжка
     handleJump() {
-        const onGround = this.player.body.touching.down;
-        
-        // Стандартный прыжок на земле
-        if (onGround) {
-            // Используем jumpStrength вместо жестко заданного значения
-            // Упрощаем: просто округляем и устанавливаем скорость
+        // Если игрок на земле, выполняем обычный прыжок
+        if (this.player.body.touching.down) {
+            // Округляем значение для прыжка
             const jumpVelocity = Math.round(this.player.jumpStrength);
-            this.player.setVelocityY(jumpVelocity);
+            this.player.setVelocityY(jumpVelocity); // jumpStrength уже содержит отрицательное значение
             
-            // Визуальный эффект делаем быстрее
-            this.scene.tweens.add({
-                targets: this.player,
-                scaleY: 0.8,
-                scaleX: 1.2,
-                duration: 50, // Ускоряем анимацию
-                yoyo: true,
-                onComplete: () => {
-                    // Возвращаем нормальный размер после анимации
-                    this.player.setScale(1, 1);
-                }
-            });
+            // Визуальный эффект
+            this.createJumpEffect();
             
             return true;
         }
-        
-        // Проверяем возможность двойного прыжка
-        if (this.abilities.doubleJump.available && !onGround) {
-            // Также округляем значение для двойного прыжка
-            const jumpVelocity = Math.round(this.player.jumpStrength);
-            this.player.setVelocityY(jumpVelocity);
-            
-            // Вызываем эффект двойного прыжка
+        // Если игрок в воздухе, пробуем использовать двойной прыжок
+        else if (this.abilities.doubleJump.active && this.abilities.doubleJump.available) {
             this.abilities.doubleJump.effect();
-            
             return true;
         }
-        
-        // Проверяем возможность прыжка с крыльями
-        if (this.powerups.wings.active && this.powerups.wings.jumpsLeft > 0 && !onGround) {
+        // Если есть активные крылья, пробуем использовать их
+        else if (this.powerups.wings.active && this.powerups.wings.jumpsLeft > 0) {
             return this.powerups.wings.useWingsJump();
         }
         
