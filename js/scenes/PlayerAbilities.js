@@ -69,7 +69,7 @@ class PlayerAbilities {
                         this.abilities.superJump.charging = false;
                         
                         // Применяем супер-прыжок
-                        const power = -600; // Мощность прыжка
+                        const power = -800; // Мощность прыжка (было -600)
                         this.player.setVelocityY(power);
                         
                         // Если нажата клавиша направления, добавляем импульс по X
