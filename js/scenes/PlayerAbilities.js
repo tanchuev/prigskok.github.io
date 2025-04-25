@@ -16,14 +16,17 @@ class PlayerAbilities {
             
             // Двойной прыжок
             doubleJump: {
-                active: false,
+                active: true,
                 cooldown: 8000, // 8 секунд
                 lastUsed: 0,
                 available: true,
                 // Позволяет сделать второй прыжок в воздухе
                 effect: () => {
                     if (this.abilities.doubleJump.available && !this.player.body.touching.down) {
-                        this.player.setVelocityY(this.player.jumpStrength);
+                        // Округляем значение для прыжка
+                        const jumpVelocity = Math.round(this.player.jumpStrength);
+                        this.player.setVelocityY(jumpVelocity);
+                        
                         this.abilities.doubleJump.available = false;
                         this.abilities.doubleJump.lastUsed = Date.now();
                         
@@ -34,81 +37,16 @@ class PlayerAbilities {
                         this.scene.time.delayedCall(this.abilities.doubleJump.cooldown, () => {
                             this.abilities.doubleJump.available = true;
                             
-                            // Обновляем индикатор
+                            // Обновляем индикатор на UI
                             if (this.scene.doubleJumpIndicator) {
                                 this.scene.doubleJumpIndicator.setFillStyle(0x00ff00);
                             }
-                        });
-                    }
-                }
-            },
-            
-            // Супер-отскок
-            superJump: {
-                active: false,
-                cooldown: 45000, // 45 секунд
-                lastUsed: 0,
-                available: true,
-                charging: false,
-                chargeLevel: 0,
-                // Мощный прыжок с временной неуязвимостью
-                effect: () => {
-                    if (this.abilities.superJump.available && this.player.body.touching.down) {
-                        // Начинаем заряжать прыжок
-                        this.abilities.superJump.charging = true;
-                        this.abilities.superJump.chargeLevel = 0;
-                        
-                        // Визуализация зарядки
-                        this.showChargeEffect();
-                    }
-                },
-                // Выполнение прыжка после зарядки
-                execute: (direction) => {
-                    if (this.abilities.superJump.charging) {
-                        // Отключаем зарядку
-                        this.abilities.superJump.charging = false;
-                        
-                        // Применяем супер-прыжок
-                        const power = -800; // Мощность прыжка (было -600)
-                        this.player.setVelocityY(power);
-                        
-                        // Если нажата клавиша направления, добавляем импульс по X
-                        if (direction === 'left') {
-                            this.player.setVelocityX(-300);
-                        } else if (direction === 'right') {
-                            this.player.setVelocityX(300);
-                        }
-                        
-                        // Временная неуязвимость
-                        this.player.setTint(0xffff00);
-                        this.scene.time.delayedCall(1000, () => {
-                            this.player.clearTint();
-                        });
-                        
-                        // Визуальный эффект
-                        this.createSuperJumpEffect();
-                        
-                        // Перезарядка
-                        this.abilities.superJump.available = false;
-                        this.abilities.superJump.lastUsed = Date.now();
-                        
-                        this.scene.time.delayedCall(this.abilities.superJump.cooldown, () => {
-                            this.abilities.superJump.available = true;
                             
-                            // Обновляем индикатор
-                            if (this.scene.superJumpIndicator) {
-                                this.scene.superJumpIndicator.setFillStyle(0xff8800);
+                            // Обновляем индикатор прогресса
+                            if (this.scene.doubleJumpProgressIndicator) {
+                                this.scene.doubleJumpProgressIndicator.visible = false;
                             }
                         });
-                    }
-                },
-                // Отмена зарядки
-                cancel: () => {
-                    if (this.abilities.superJump.charging) {
-                        this.abilities.superJump.charging = false;
-                        if (this.chargeEffect) {
-                            this.chargeEffect.destroy();
-                        }
                     }
                 }
             }
@@ -236,7 +174,10 @@ class PlayerAbilities {
                 // Использование дополнительного прыжка
                 useWingsJump: () => {
                     if (this.powerups.wings.active && this.powerups.wings.jumpsLeft > 0 && !this.player.body.touching.down) {
-                        this.player.setVelocityY(this.player.jumpStrength);
+                        // Округляем значение для прыжка с крыльями
+                        const jumpVelocity = Math.round(this.player.jumpStrength);
+                        this.player.setVelocityY(jumpVelocity);
+                        
                         this.powerups.wings.jumpsLeft--;
                         
                         // Обновляем отображение оставшихся прыжков
@@ -279,36 +220,45 @@ class PlayerAbilities {
         
         // Стандартный прыжок на земле
         if (onGround) {
-            this.player.setVelocityY(this.player.jumpStrength);
+            // Используем jumpStrength вместо жестко заданного значения
+            // Упрощаем: просто округляем и устанавливаем скорость
+            const jumpVelocity = Math.round(this.player.jumpStrength);
+            this.player.setVelocityY(jumpVelocity);
+            
+            // Визуальный эффект делаем быстрее
+            this.scene.tweens.add({
+                targets: this.player,
+                scaleY: 0.8,
+                scaleX: 1.2,
+                duration: 50, // Ускоряем анимацию
+                yoyo: true,
+                onComplete: () => {
+                    // Возвращаем нормальный размер после анимации
+                    this.player.setScale(1, 1);
+                }
+            });
+            
             return true;
         }
         
         // Проверяем возможность двойного прыжка
         if (this.abilities.doubleJump.available && !onGround) {
+            // Также округляем значение для двойного прыжка
+            const jumpVelocity = Math.round(this.player.jumpStrength);
+            this.player.setVelocityY(jumpVelocity);
+            
+            // Вызываем эффект двойного прыжка
             this.abilities.doubleJump.effect();
+            
             return true;
         }
         
         // Проверяем возможность прыжка с крыльями
-        if (this.powerups.wings.active && !onGround) {
+        if (this.powerups.wings.active && this.powerups.wings.jumpsLeft > 0 && !onGround) {
             return this.powerups.wings.useWingsJump();
         }
         
         return false;
-    }
-    
-    // Обработка нажатия на кнопку супер-прыжка
-    handleSuperJump() {
-        if (this.abilities.superJump.available && this.player.body.touching.down) {
-            this.abilities.superJump.effect();
-        }
-    }
-    
-    // Обработка отпускания кнопки супер-прыжка
-    handleSuperJumpRelease(direction) {
-        if (this.abilities.superJump.charging) {
-            this.abilities.superJump.execute(direction);
-        }
     }
     
     // Создание эффекта двойного прыжка
@@ -330,57 +280,6 @@ class PlayerAbilities {
             duration: 300,
             onComplete: () => {
                 circle.destroy();
-            }
-        });
-    }
-    
-    // Создание эффекта супер-прыжка
-    createSuperJumpEffect() {
-        // Создаем частицы
-        const particles = this.scene.add.particles(
-            this.player.x,
-            this.player.y,
-            'particle',
-            {
-                lifespan: 800,
-                speed: { min: 100, max: 300 },
-                scale: { start: 1, end: 0 },
-                quantity: 20,
-                blendMode: 'ADD'
-            }
-        );
-        
-        // Удаляем через некоторое время
-        this.scene.time.delayedCall(800, () => {
-            particles.destroy();
-        });
-    }
-    
-    // Показывает эффект зарядки для супер-прыжка
-    showChargeEffect() {
-        // Создаем эффект свечения вокруг игрока
-        this.chargeEffect = this.scene.add.circle(
-            this.player.x,
-            this.player.y,
-            20,
-            0xffff00,
-            0.5
-        );
-        
-        // Анимация увеличения
-        this.scene.tweens.add({
-            targets: this.chargeEffect,
-            scale: 2,
-            duration: 700,
-            ease: 'Linear',
-            onUpdate: () => {
-                this.chargeEffect.x = this.player.x;
-                this.chargeEffect.y = this.player.y;
-                this.abilities.superJump.chargeLevel = this.chargeEffect.scale;
-            },
-            onComplete: () => {
-                // Автоматически выполняем прыжок после полной зарядки
-                this.abilities.superJump.execute();
             }
         });
     }
@@ -468,7 +367,21 @@ class PlayerAbilities {
         );
         this.scene.doubleJumpIndicator.setScrollFactor(0);
         
-        // Иконка двойного прыжка
+        // Индикатор прогресса перезарядки двойного прыжка (изначально невидимый)
+        this.scene.doubleJumpProgressIndicator = this.scene.add.arc(
+            730,
+            550,
+            15, // Немного меньше, чем основной индикатор
+            90, // Начальный угол (в градусах)
+            90, // Конечный угол (изначально такой же, как начальный)
+            false, // против часовой стрелки
+            0xffffff,
+            1
+        );
+        this.scene.doubleJumpProgressIndicator.setScrollFactor(0);
+        this.scene.doubleJumpProgressIndicator.visible = false;
+        
+        // Улучшенная иконка двойного прыжка
         const djIcon = this.scene.add.text(
             730, 
             550, 
@@ -481,43 +394,67 @@ class PlayerAbilities {
         ).setOrigin(0.5);
         djIcon.setScrollFactor(0);
         
-        // Индикатор супер-прыжка
-        this.scene.superJumpIndicator = this.scene.add.circle(
-            680, 
-            550, 
-            25, 
-            this.abilities.superJump.available ? 0xff8800 : 0x888888
-        );
-        this.scene.superJumpIndicator.setScrollFactor(0);
-        
-        // Иконка супер-прыжка
-        const sjIcon = this.scene.add.text(
-            680, 
-            550, 
-            'SJ', 
-            { 
-                fontSize: '16px', 
-                color: '#ffffff',
-                fontStyle: 'bold'
+        // Добавляем подпись для ясности
+        const djLabel = this.scene.add.text(
+            730,
+            580,
+            'Двойной прыжок',
+            {
+                fontSize: '12px',
+                color: '#ffffff'
             }
         ).setOrigin(0.5);
-        sjIcon.setScrollFactor(0);
+        djLabel.setScrollFactor(0);
+        
+        // Добавляем анимацию пульсации для UI индикатора
+        this.scene.tweens.add({
+            targets: this.scene.doubleJumpIndicator,
+            scale: { from: 1, to: 1.2 },
+            duration: 800,
+            yoyo: true,
+            repeat: -1,
+            paused: false
+        });
     }
     
     // Обновление индикаторов способностей
     updateAbilityIndicators() {
         // Обновляем индикатор двойного прыжка
         if (this.scene.doubleJumpIndicator) {
-            this.scene.doubleJumpIndicator.setFillStyle(
-                this.abilities.doubleJump.available ? 0x00ff00 : 0x888888
-            );
-        }
-        
-        // Обновляем индикатор супер-прыжка
-        if (this.scene.superJumpIndicator) {
-            this.scene.superJumpIndicator.setFillStyle(
-                this.abilities.superJump.available ? 0xff8800 : 0x888888
-            );
+            const color = this.abilities.doubleJump.available ? 0x00ff00 : 0x888888;
+            this.scene.doubleJumpIndicator.setFillStyle(color);
+            
+            // Если двойной прыжок не доступен, обновляем прогресс перезарядки
+            if (!this.abilities.doubleJump.available) {
+                // Показываем индикатор прогресса
+                if (this.scene.doubleJumpProgressIndicator) {
+                    this.scene.doubleJumpProgressIndicator.visible = true;
+                    
+                    // Вычисляем прогресс перезарядки (от 0 до 1)
+                    const timeSinceLastUse = Date.now() - this.abilities.doubleJump.lastUsed;
+                    const progress = Math.min(1, timeSinceLastUse / this.abilities.doubleJump.cooldown);
+                    
+                    // Обновляем угол заполнения (от 90 до 450 градусов, полный круг)
+                    const endAngle = 90 + (360 * progress);
+                    this.scene.doubleJumpProgressIndicator.setEndAngle(endAngle);
+                }
+                
+                // Останавливаем анимацию пульсации
+                this.scene.doubleJumpIndicator.setScale(1);
+                this.scene.tweens.getTweensOf(this.scene.doubleJumpIndicator).forEach(tween => {
+                    tween.pause();
+                });
+            } else {
+                // Скрываем индикатор прогресса
+                if (this.scene.doubleJumpProgressIndicator) {
+                    this.scene.doubleJumpProgressIndicator.visible = false;
+                }
+                
+                // Возобновляем анимации, если они были остановлены
+                this.scene.tweens.getTweensOf(this.scene.doubleJumpIndicator).forEach(tween => {
+                    tween.resume();
+                });
+            }
         }
     }
 } 

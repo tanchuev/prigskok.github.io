@@ -11,6 +11,15 @@ class PowerupManager {
             { type: 'earthquake', color: 0x8b4513, chance: 10 }
         ];
         
+        // Вероятность появления бонуса на платформе (по умолчанию 20%)
+        this.platformPowerupChance = 0.2;
+        
+        // Режим генерации бонусов (по умолчанию 'both')
+        // 'timer' - только по таймеру
+        // 'platform' - только при создании платформ
+        // 'both' - оба варианта
+        this.spawningMode = 'both';
+        
         // Создаем текстуры для бонусов
         this.createPowerupTextures();
     }
@@ -35,7 +44,26 @@ class PowerupManager {
     }
     
     // Начать спаунить бонусы с заданным интервалом
-    startSpawning(interval = 20000) {
+    startSpawning(interval = 20000, spawningMode = 'both') {
+        // Устанавливаем режим генерации
+        this.spawningMode = spawningMode;
+        
+        // Если выбран режим 'platform' или 'both', установим вероятность появления на платформах
+        if (spawningMode === 'platform' || spawningMode === 'both') {
+            // Увеличиваем вероятность в режиме только на платформах
+            this.platformPowerupChance = spawningMode === 'platform' ? 0.3 : 0.2;
+        }
+        
+        // Если режим не включает таймер, выходим
+        if (spawningMode === 'platform') {
+            // Останавливаем таймер, если он был
+            if (this.spawnTimer) {
+                this.spawnTimer.remove();
+                this.spawnTimer = null;
+            }
+            return;
+        }
+        
         // Останавливаем предыдущий таймер, если он был
         if (this.spawnTimer) {
             this.spawnTimer.remove();
@@ -53,41 +81,12 @@ class PowerupManager {
         this.spawnRandomPowerup();
     }
     
-    // Остановить спаун бонусов
-    stopSpawning() {
-        if (this.spawnTimer) {
-            this.spawnTimer.remove();
-            this.spawnTimer = null;
-        }
-    }
-    
-    // Создание случайного бонуса на случайной платформе
-    spawnRandomPowerup() {
-        // Получаем все активные платформы
-        const platforms = [];
-        
-        // Собираем платформы из разных групп
-        this.scene.allPlatforms.forEach(group => {
-            group.getChildren().forEach(platform => {
-                // Проверяем, что платформа видима и активна
-                if (platform.active && platform.visible && platform.body.enable) {
-                    platforms.push(platform);
-                }
-            });
-        });
-        
-        // Если нет платформ, выходим
-        if (platforms.length === 0) {
-            return;
-        }
-        
-        // Выбираем случайную платформу
-        const platform = Phaser.Utils.Array.GetRandom(platforms);
-        
+    // Создание бонуса на конкретной платформе
+    spawnPowerupOnPlatform(platform) {
         // Выбираем случайный тип бонуса на основе весов
         const powerupType = this.getRandomPowerupType();
         
-        // Создаем бонус над случайной платформой
+        // Создаем бонус над платформой
         const powerup = this.powerups.create(
             platform.x,
             platform.y - platform.height - 20,
@@ -138,6 +137,43 @@ class PowerupManager {
                 powerup.destroy();
             }
         });
+        
+        return powerup;
+    }
+    
+    // Остановить спаун бонусов
+    stopSpawning() {
+        if (this.spawnTimer) {
+            this.spawnTimer.remove();
+            this.spawnTimer = null;
+        }
+    }
+    
+    // Создание случайного бонуса на случайной платформе
+    spawnRandomPowerup() {
+        // Получаем все активные платформы
+        const platforms = [];
+        
+        // Собираем платформы из разных групп
+        this.scene.allPlatforms.forEach(group => {
+            group.getChildren().forEach(platform => {
+                // Проверяем, что платформа видима и активна
+                if (platform.active && platform.visible && platform.body.enable) {
+                    platforms.push(platform);
+                }
+            });
+        });
+        
+        // Если нет платформ, выходим
+        if (platforms.length === 0) {
+            return;
+        }
+        
+        // Выбираем случайную платформу
+        const platform = Phaser.Utils.Array.GetRandom(platforms);
+        
+        // Генерируем бонус на выбранной платформе
+        this.spawnPowerupOnPlatform(platform);
     }
     
     // Выбор случайного типа бонуса на основе весов

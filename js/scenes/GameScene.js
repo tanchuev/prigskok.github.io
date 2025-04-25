@@ -1,38 +1,100 @@
 class GameScene extends Phaser.Scene {
     constructor() {
         super('GameScene');
-    }
-
-    init() {
+        
+        // Флаги нажатия клавиш управления
+        this.leftPressed = false;
+        this.rightPressed = false;
+        this.jumpPressed = false;
+        
+        // Добавляем переменную для отслеживания последнего прыжка
+        this.lastJumpTime = 0;
+        this.jumpCooldown = 400; // Уменьшаем время между возможными прыжками
+        
+        // Высота, на которую поднялся игрок (счет)
+        this.score = 0;
+        this.highestScore = 0;
+        
+        // Параметры для процедурной генерации платформ
+        this.lastPlatformY = 0;
+        this.lastPlatformGenerationTime = undefined;
+        this.waterLevel = 0;
+        
         // Инициализация переменных
         this.gameOver = false;
-        this.score = 0;
-        this.platformYMin = 100;  // Минимальное расстояние по Y между платформами (было 60)
-        this.platformYMax = 180; // Максимальное расстояние по Y между платформами (было 100)
-        this.platformXMin = 50;  // Минимальное расстояние платформы от края
-        this.floodHeight = 0;    // Высота затопления
-        this.floodSpeed = 0.2;   // Скорость затопления
-        this.lastPlatformY = 600; // Начальная высота для платформ
-        this.jumpVelocity = -450; // Увеличиваем силу прыжка (было -350)
-        this.cameraYMin = 99999;
+        this.platformYMin = 120;  // Минимальное расстояние по Y между платформами (было 100)
+        this.platformYMax = 200; // Максимальное расстояние по Y между платформами (было 180)
+        this.platformXMin = 70;  // Минимальное расстояние платформы от края (было 50)
+        this.lastGenerationTime = 0; // Для регулярной генерации платформ
+        this.initialPlayerY = 570; // Начальная позиция игрока по Y
+        this.maxHeightReached = 0; // Максимальная достигнутая высота
         
         // Параметры для платформ
-        this.platformWidth = 96;
+        this.platformWidth = 86; // Уменьшаем ширину с 96 до 86
         this.platformHeight = 20; // Уменьшаем высоту с 32 до 20
         
         // Разные типы платформ
         this.platformTypes = {
-            normal: { chance: 60 }, // Обычная платформа
-            fragile: { chance: 15 }, // Хрупкая платформа
-            slippery: { chance: 15 }, // Скользкая платформа
-            vanishing: { chance: 10 }  // Исчезающая платформа
+            normal: { chance: 30 }, // Обычная платформа (было 50, изначально 60)
+            fragile: { chance: 25 }, // Хрупкая платформа (было 20, изначально 15)
+            slippery: { chance: 25 }, // Скользкая платформа (было 20, изначально 15)
+            vanishing: { chance: 20 }  // Исчезающая платформа (было 10)
+        };
+        
+        // Счетчик для отслеживания времени игры
+        this.gameTime = 0;
+        
+        // Оптимизированные параметры для генерации платформ
+        this.platformGenerationBuffer = 600; // Расстояние в пикселях до верхней платформы, при котором начинается генерация
+        this.maxPlatforms = 30; // Ограничиваем количество платформ для производительности
+        this.generationRowsCount = 8; // Количество рядов платформ, генерируемых за один вызов
+    }
+
+    init(data) {
+        // Получаем высший счет из предыдущих сессий
+        this.highestScore = data.highScore || 0;
+        
+        // Сбрасываем флаги нажатия клавиш
+        this.leftPressed = false;
+        this.rightPressed = false;
+        this.jumpPressed = false;
+        
+        // Сбрасываем счет
+        this.score = 0;
+        
+        // Сбрасываем генерацию платформ
+        this.lastPlatformY = 0;
+        this.lastPlatformGenerationTime = undefined;
+        
+        // Сбрасываем уровень воды
+        this.waterLevel = 0;
+        
+        // Настройки игровой физики
+        this.platformYMin = 120;  // Минимальное расстояние по Y между платформами (было 100)
+        this.platformYMax = 200; // Максимальное расстояние по Y между платформами (было 180)
+        this.platformXMin = 70;  // Минимальное расстояние платформы от края (было 50)
+        this.lastPlatformY = 600; // Начальная высота для платформ
+        this.jumpVelocity = -450; // Увеличиваем силу прыжка (было -350)
+        this.lastGenerationTime = 0; // Для регулярной генерации платформ
+        this.initialPlayerY = 570; // Начальная позиция игрока по Y
+        this.maxHeightReached = 0; // Максимальная достигнутая высота
+        
+        // Параметры для платформ
+        this.platformWidth = 86; // Уменьшаем ширину с 96 до 86
+        this.platformHeight = 20; // Уменьшаем высоту с 32 до 20
+        
+        // Разные типы платформ
+        this.platformTypes = {
+            normal: { chance: 30 }, // Обычная платформа (было 50, изначально 60)
+            fragile: { chance: 25 }, // Хрупкая платформа (было 20, изначально 15)
+            slippery: { chance: 25 }, // Скользкая платформа (было 20, изначально 15)
+            vanishing: { chance: 20 }  // Исчезающая платформа (было 10)
         };
         
         // Мобильное управление
         this.leftPressed = false;
         this.rightPressed = false;
         this.jumpPressed = false;
-        this.superJumpPressed = false;
         
         // Счетчик для отслеживания времени игры
         this.gameTime = 0;
@@ -123,12 +185,22 @@ class GameScene extends Phaser.Scene {
         startingPlatform.setScale(2.5, 1).refreshBody(); // Делаем её шире, но не выше
         this.lastPlatformY = 600;
         
-        // Создание процедурно-генерируемых платформ
+        // Создание игрока
+        this.player = this.physics.add.sprite(400, this.initialPlayerY, 'player'); // Используем сохраненную позицию
+        this.player.setBounce(0.2);
+        
+        // Сохраняем начальную позицию Y для расчета высоты
+        this.initialPlayerY = this.player.y;
+        this.maxHeightReached = 0;
+        
+        // Инициализация контрольных точек для оптимизации
+        this.lastPlatformCheckpoint = this.player.y;
+        this.lastCleanupCheckpoint = this.cameras.main.scrollY;
+        
+        // Теперь, когда игрок создан, генерируем платформы
         this.generatePlatforms();
         
-        // Создание игрока
-        this.player = this.physics.add.sprite(400, 570, 'player'); // Немного выше из-за меньшей высоты платформы
-        this.player.setBounce(0.2);
+        console.log(`Создан игрок на позиции Y=${this.initialPlayerY}`);
         
         // Игрок не должен выходить за боковые границы, но может двигаться вверх
         this.player.setCollideWorldBounds(false);
@@ -149,15 +221,15 @@ class GameScene extends Phaser.Scene {
         
         // Инициализация менеджера бонусов
         this.powerupManager = new PowerupManager(this);
-        this.powerupManager.startSpawning();
+        this.powerupManager.startSpawning(20000, 'platform'); // Используем режим генерации только при создании платформ
         
         // Настройка камеры
         this.setupCamera();
         
-        // Создание управления
+        // Создание управления для горизонтального движения
         this.cursors = this.input.keyboard.createCursorKeys();
         
-        // Добавление мобильного управления
+        // Добавление мобильного управления и кнопок способностей
         this.createMobileControls();
         
         // Интерфейс
@@ -165,19 +237,6 @@ class GameScene extends Phaser.Scene {
         
         // Создание индикаторов способностей
         this.playerAbilities.createAbilityIndicators();
-        
-        // Уровень затопления - фиксируем в нижней части экрана
-        this.floodRect = this.add.rectangle(400, 600, 800, 10, 0x0000ff);
-        this.floodRect.setScrollFactor(0); // Привязываем к камере
-        this.floodHeight = 0; // Реальная высота уровня воды
-        
-        // Добавление таймера для увеличения сложности
-        this.time.addEvent({
-            delay: 10000, // 10 секунд
-            callback: this.increaseFloodSpeed,
-            callbackScope: this,
-            loop: true
-        });
     }
 
     setupCollisions() {
@@ -190,8 +249,15 @@ class GameScene extends Phaser.Scene {
     setupCamera() {
         // Увеличиваем границы камеры для бесконечного подъема
         this.cameras.main.setBounds(0, -95000, 800, 100000);
-        this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
+        this.cameras.main.startFollow(this.player, false); // Отключаем автоследование, будем контролировать камеру вручную
+        
+        // Дополнительные настройки для плавного перемещения камеры
         this.cameras.main.setDeadzone(400, 200);
+        this.cameras.main.setFollowOffset(0, -200); // Смещаем камеру вверх для лучшего обзора
+        
+        // Настраиваем параметры для оптимизации генерации платформ
+        this.lastPlatformCheckpoint = 0; // Контрольная точка для проверки генерации платформ
+        this.lastCleanupCheckpoint = 0; // Контрольная точка для очистки старых платформ
     }
 
     update(time, delta) {
@@ -205,18 +271,55 @@ class GameScene extends Phaser.Scene {
         // Обновление фона
         this.bg.tilePositionY = -this.cameras.main.scrollY * 0.3;
         
-        // Обновление счета в зависимости от высоты
-        this.score = Math.max(this.score, Math.floor(600 - this.player.y + this.cameras.main.scrollY));
+        // Вычисляем текущую высоту относительно начальной позиции игрока
+        // Учитываем, что направление Y инвертировано (вверх - отрицательные значения)
+        const currentHeight = Math.floor(this.initialPlayerY - this.player.y);
+        
+        // Обновляем максимальную достигнутую высоту
+        if (currentHeight > this.maxHeightReached) {
+            this.maxHeightReached = currentHeight;
+        }
+        
+        // Устанавливаем текущую высоту как счет
+        this.score = this.maxHeightReached;
         this.scoreText.setText('Высота: ' + this.score);
         
-        // Отслеживание минимального Y камеры
-        const previousCameraY = this.cameraYMin;
-        this.cameraYMin = Math.min(this.cameraYMin, this.cameras.main.scrollY);
+        // Обрабатываем нажатия клавиш для прыжка
+        if (this.spaceKey && this.spaceKey.isDown) {
+            this.jumpPressed = true;
+        }
         
-        // Генерация новых платформ, если камера поднялась достаточно высоко
-        // Используем более гибкое условие для генерации платформ
-        if (this.cameras.main.scrollY < this.lastPlatformY - 600 || this.player.y < this.lastPlatformY - 400) {
-            this.generatePlatforms();
+        // Исправляем дребезжание более простым способом
+        // Просто округляем позицию для отображения, не влияя на физику
+        this.player.x = Math.round(this.player.x);
+        this.player.y = Math.round(this.player.y);
+        
+        // Упрощаем логику следования камеры за игроком
+        // Плавное следование камеры за игроком с определенным смещением вверх
+        const cameraTargetY = Math.round(this.player.y) - 200;
+        
+        // Более оптимизированное плавное движение камеры
+        // Ограничиваем перемещение камеры только когда это действительно необходимо
+        const smoothFactor = 0.1; // Фактор плавности (0.1 = 10% расстояния за кадр)
+        
+        // Только если разница значительна, перемещаем камеру
+        const cameraDistance = cameraTargetY - this.cameras.main.scrollY;
+        if (Math.abs(cameraDistance) > 5) {
+            this.cameras.main.scrollY += cameraDistance * smoothFactor;
+        }
+        
+        // Генерация новых платформ только когда игрок приближается к верхним платформам
+        // Используем контрольные точки для оптимизации проверок
+        const playerCheckpoint = Math.floor(this.player.y / 100) * 100;
+        
+        if (playerCheckpoint < this.lastPlatformCheckpoint - 100) {
+            this.lastPlatformCheckpoint = playerCheckpoint;
+            
+            const platformGenerationThreshold = this.lastPlatformY + this.platformGenerationBuffer;
+            if (this.player.y < platformGenerationThreshold) {
+                console.log(`Запускаем генерацию платформ, игрок Y=${this.player.y}, порог=${platformGenerationThreshold}`);
+                this.generatePlatforms();
+            }
         }
         
         // Проверяем, не приблизился ли игрок к верхней границе мира
@@ -235,27 +338,76 @@ class GameScene extends Phaser.Scene {
         }
         
         // Проверяем, не упал ли игрок слишком низко
-        if (this.player.y > this.cameras.main.scrollY + 1200) {
-            // Если игрок упал слишком низко, пытаемся вернуть его на последнюю платформу
-            this.respawnPlayer();
+        if (this.player.y > this.cameras.main.scrollY + 800) {
+            // Если игрок упал за нижнюю границу экрана, он проигрывает
+            this.gameOver = true;
+            this.player.setTint(0xff0000);
+            
+            // Останавливаем физику
+            this.physics.pause();
+            
+            // Останавливаем спаун бонусов
+            this.powerupManager.stopSpawning();
+            
+            // Отображаем сообщение о проигрыше
+            const gameOverText = this.add.text(400, 300, 'Игра окончена', { 
+                fontSize: '48px', 
+                fill: '#fff',
+                stroke: '#000',
+                strokeThickness: 6
+            });
+            gameOverText.setOrigin(0.5);
+            gameOverText.setScrollFactor(0);
+            
+            // Отображаем результат
+            const scoreText = this.add.text(400, 350, `Высота: ${this.score}`, { 
+                fontSize: '32px', 
+                fill: '#fff',
+                stroke: '#000',
+                strokeThickness: 4
+            });
+            scoreText.setOrigin(0.5);
+            scoreText.setScrollFactor(0);
+            
+            const restartText = this.add.text(400, 400, 'Нажмите, чтобы начать снова', { 
+                fontSize: '24px', 
+                fill: '#fff',
+                stroke: '#000',
+                strokeThickness: 4
+            });
+            restartText.setOrigin(0.5);
+            restartText.setScrollFactor(0);
+            
+            // Добавляем возможность перезапуска
+            this.input.on('pointerdown', () => {
+                this.scene.start('StartScene');
+            });
+            
+            return;
         }
         
         // Удаляем платформы, которые слишком далеко внизу (оптимизация)
-        const cleanupThreshold = this.cameras.main.scrollY + 1200; // 1200 пикселей ниже текущего положения камеры
+        // Используем контрольные точки для очистки платформ
+        const cleanupCheckpoint = Math.floor(this.cameras.main.scrollY / 300) * 300;
         
-        this.allPlatforms.forEach(group => {
-            group.getChildren().forEach(platform => {
-                if (platform.y > cleanupThreshold) {
-                    platform.destroy();
-                }
+        if (cleanupCheckpoint > this.lastCleanupCheckpoint) {
+            this.lastCleanupCheckpoint = cleanupCheckpoint;
+            
+            const cleanupThreshold = this.cameras.main.scrollY + 800; // Сокращаем зону очистки для большей оптимизации
+            
+            this.allPlatforms.forEach(group => {
+                group.getChildren().forEach(platform => {
+                    if (platform.y > cleanupThreshold) {
+                        platform.destroy();
+                    }
+                });
             });
-        });
+            
+            console.log(`Очистка старых платформ, порог: ${cleanupThreshold}`);
+        }
         
         // Базовое управление
         this.playerMovement();
-        
-        // Обновление уровня затопления
-        this.updateFloodLevel();
         
         // Обновление менеджера бонусов
         this.powerupManager.update();
@@ -267,13 +419,25 @@ class GameScene extends Phaser.Scene {
         this.walls.getChildren().forEach(wall => {
             wall.y = this.cameras.main.scrollY + 300;
         });
-        
-        // Проверка проигрыша (если игрок падает ниже затопления)
-        this.checkGameOver();
     }
 
     playerHitPlatform(player, platform) {
         // Обработка столкновения с разными типами платформ
+        
+        // Сбрасываем доступность двойного прыжка при касании любой платформы
+        if (this.playerAbilities && player.body.touching.down) {
+            // Если двойной прыжок на перезарядке, не сбрасываем таймер
+            if (!this.playerAbilities.abilities.doubleJump.available &&
+                Date.now() - this.playerAbilities.abilities.doubleJump.lastUsed < this.playerAbilities.abilities.doubleJump.cooldown) {
+                // Перезарядка в процессе, не восстанавливаем
+            } else {
+                // Восстанавливаем доступность двойного прыжка
+                this.playerAbilities.abilities.doubleJump.available = true;
+                
+                // Обновляем UI индикатор
+                this.playerAbilities.updateAbilityIndicators();
+            }
+        }
         
         // Хрупкие платформы
         if (platform.texture.key === 'platform_fragile' && player.body.touching.down) {
@@ -350,14 +514,23 @@ class GameScene extends Phaser.Scene {
         });
         this.scoreText.setScrollFactor(0);
         
-        // Индикатор уровня затопления
-        this.floodSpeedText = this.add.text(16, 60, 'Скорость воды: 1x', {
-            fontSize: '20px',
-            fill: '#fff',
-            stroke: '#000',
-            strokeThickness: 3
-        });
-        this.floodSpeedText.setScrollFactor(0);
+        // Добавляем подсказки по управлению для ПК
+        if (this.sys.game.device.os.desktop) {
+            // Создаем подсказки по управлению
+            const controlHint = this.add.text(16, 60, 
+                'Управление: ←→ - движение, ПРОБЕЛ - прыжок, S - супер-прыжок', { 
+                fontSize: '16px', 
+                fill: '#fff',
+                stroke: '#000',
+                strokeThickness: 2
+            });
+            controlHint.setScrollFactor(0);
+            
+            // Через 5 секунд скрываем подсказку
+            this.time.delayedCall(5000, () => {
+                controlHint.alpha = 0;
+            });
+        }
     }
 
     createMobileControls() {
@@ -384,57 +557,35 @@ class GameScene extends Phaser.Scene {
                 this.rightPressed = false;
             });
             
-            // Зона для прыжка (верхняя часть экрана)
-            const jumpZone = this.add.zone(400, 200, 800, 300);
-            jumpZone.setScrollFactor(0);
-            jumpZone.setInteractive();
-            jumpZone.on('pointerdown', () => {
+            // Создаем видимые кнопки для способностей на мобильных устройствах
+            // Кнопка обычного прыжка
+            const jumpButton = this.add.circle(700, 500, 40, 0x4de9e7, 0.7);
+            jumpButton.setScrollFactor(0);
+            jumpButton.setInteractive();
+            jumpButton.on('pointerdown', () => {
                 this.jumpPressed = true;
             });
-            jumpZone.on('pointerup', () => {
+            jumpButton.on('pointerup', () => {
                 this.jumpPressed = false;
             });
             
-            // Зона для супер-прыжка (внизу экрана)
-            const superJumpZone = this.add.zone(400, 500, 200, 100);
-            superJumpZone.setScrollFactor(0);
-            superJumpZone.setInteractive();
-            superJumpZone.on('pointerdown', () => {
-                this.superJumpPressed = true;
-                this.playerAbilities.handleSuperJump();
-            });
-            superJumpZone.on('pointerup', () => {
-                this.superJumpPressed = false;
-                // Определяем направление
-                let direction = null;
-                if (this.leftPressed) direction = 'left';
-                if (this.rightPressed) direction = 'right';
-                this.playerAbilities.handleSuperJumpRelease(direction);
-            });
-            
-            // Визуализация зон управления (для отладки)
-            /*
-            const graphics = this.add.graphics();
-            graphics.lineStyle(2, 0xffff00);
-            graphics.strokeRect(leftZone.x - leftZone.width/2, leftZone.y - leftZone.height/2, leftZone.width, leftZone.height);
-            graphics.strokeRect(rightZone.x - rightZone.width/2, rightZone.y - rightZone.height/2, rightZone.width, rightZone.height);
-            graphics.strokeRect(jumpZone.x - jumpZone.width/2, jumpZone.y - jumpZone.height/2, jumpZone.width, jumpZone.height);
-            graphics.setScrollFactor(0);
-            */
+            // Текстовые подсказки на кнопках
+            const jumpText = this.add.text(700, 500, "П", {
+                fontSize: '32px',
+                fill: '#fff'
+            }).setOrigin(0.5);
+            jumpText.setScrollFactor(0);
         } else {
-            // Для ПК добавляем обработку клавиши для супер-прыжка
-            this.input.keyboard.on('keydown-SHIFT', () => {
-                this.superJumpPressed = true;
-                this.playerAbilities.handleSuperJump();
-            });
+            // Для ПК добавляем обработку клавиш для способностей
+            // Прыжок - пробел, используем метод update для проверки нажатия
+            this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
             
-            this.input.keyboard.on('keyup-SHIFT', () => {
-                this.superJumpPressed = false;
-                // Определяем направление
-                let direction = null;
-                if (this.cursors.left.isDown) direction = 'left';
-                if (this.cursors.right.isDown) direction = 'right';
-                this.playerAbilities.handleSuperJumpRelease(direction);
+            // Сохраняем исходное обработчики, но теперь используем также прямую проверку клавиш
+            this.spaceKey.on('down', () => {
+                this.jumpPressed = true;
+            });
+            this.spaceKey.on('up', () => {
+                this.jumpPressed = false;
             });
         }
     }
@@ -447,25 +598,55 @@ class GameScene extends Phaser.Scene {
         if (this.cursors.left.isDown || this.leftPressed) {
             // Учитываем множитель скорости от бонуса
             const speedMultiplier = this.player.speedMultiplier || 1;
-            this.player.setVelocityX(-160 * speedMultiplier);
+            const targetVelocity = -160 * speedMultiplier;
+            
+            // Применяем плавное ускорение вместо резкого изменения скорости
+            const currentVelocity = this.player.body.velocity.x;
+            const acceleration = 15 * speedMultiplier; // Скорость изменения
+            
+            // Постепенно приближаем скорость к целевой
+            if (currentVelocity > targetVelocity) {
+                this.player.setVelocityX(Math.max(targetVelocity, currentVelocity - acceleration));
+            }
         } else if (this.cursors.right.isDown || this.rightPressed) {
             // Учитываем множитель скорости от бонуса
             const speedMultiplier = this.player.speedMultiplier || 1;
-            this.player.setVelocityX(160 * speedMultiplier);
+            const targetVelocity = 160 * speedMultiplier;
+            
+            // Применяем плавное ускорение вместо резкого изменения скорости
+            const currentVelocity = this.player.body.velocity.x;
+            const acceleration = 15 * speedMultiplier; // Скорость изменения
+            
+            // Постепенно приближаем скорость к целевой
+            if (currentVelocity < targetVelocity) {
+                this.player.setVelocityX(Math.min(targetVelocity, currentVelocity + acceleration));
+            }
         } else {
             // Если игрок на скользкой платформе, не останавливаем его полностью
             if (this.player.body.friction && this.player.body.friction.x < 0.2) {
                 this.player.setVelocityX(this.player.body.velocity.x * 0.95);
             } else {
-                this.player.setVelocityX(0);
+                // Плавное замедление вместо резкой остановки
+                const currentVelocity = this.player.body.velocity.x;
+                const deceleration = 10; // Скорость замедления
+                
+                if (Math.abs(currentVelocity) < deceleration) {
+                    this.player.setVelocityX(0);
+                } else if (currentVelocity > 0) {
+                    this.player.setVelocityX(currentVelocity - deceleration);
+                } else {
+                    this.player.setVelocityX(currentVelocity + deceleration);
+                }
             }
         }
         
-        // Обработка прыжка через систему способностей
-        if ((this.cursors.up.isDown || this.jumpPressed) && !this.superJumpPressed) {
-            // Пытаемся выполнить прыжок через систему способностей
-            if (this.playerAbilities.handleJump()) {
-                this.jumpPressed = false; // Сбрасываем флаг для мобильного управления
+        // Обработка прыжка с мгновенной реакцией
+        const currentTime = Date.now();
+        if (this.jumpPressed) {
+            if (currentTime > this.lastJumpTime + this.jumpCooldown) {
+                if (this.playerAbilities.handleJump()) {
+                    this.lastJumpTime = currentTime;
+                }
             }
         }
     }
@@ -480,12 +661,20 @@ class GameScene extends Phaser.Scene {
         const MIN_VERTICAL_OFFSET = this.platformYMin; 
         const MAX_VERTICAL_OFFSET = this.platformYMax;
 
-        // Количество строк платформ, которые генерируем за раз
-        const ROWS_TO_GENERATE = 10;
+        // Уменьшаем количество генерируемых за раз рядов для оптимизации
+        const ROWS_TO_GENERATE = Math.min(this.generationRowsCount, 6); // Максимум 6 рядов за раз
         
-        // Если нет платформ, создаем начальную платформу
-        if (this.platforms.countActive() + this.fragilePlatforms.countActive() + 
-            this.slipperyPlatforms.countActive() + this.vanishingPlatforms.countActive() === 0) {
+        // Быстрая проверка общего количества платформ
+        const totalPlatforms = this.platforms.countActive() + this.fragilePlatforms.countActive() + 
+            this.slipperyPlatforms.countActive() + this.vanishingPlatforms.countActive();
+            
+        // Логируем только в режиме отладки или с меньшей частотой
+        if (totalPlatforms % 10 === 0) {
+            console.log(`Генерация платформ. Всего: ${totalPlatforms}, Высота: ${this.score}, lastPlatformY: ${this.lastPlatformY}`);
+        }
+        
+        // Если платформ нет, создаем начальную
+        if (totalPlatforms === 0) {
             this.createPlatform(
                 this.cameras.main.width / 2,
                 this.cameras.main.height - 100,
@@ -496,55 +685,86 @@ class GameScene extends Phaser.Scene {
             this.lastPlatformY = this.cameras.main.height - 100;
             return;
         }
+        
+        // Оптимизированная проверка количества существующих платформ
+        if (totalPlatforms > this.maxPlatforms) {
+            // Удаляем самые нижние платформы менее затратным способом
+            this.allPlatforms.forEach(group => {
+                const platforms = group.getChildren();
+                
+                // Сортируем только если нужно удалить много платформ
+                if (platforms.length > 10) {
+                    const toRemoveCount = Math.floor(platforms.length * 0.15); // Удаляем 15% платформ
+                    
+                    // Находим самые нижние платформы без полной сортировки
+                    let toRemove = [];
+                    for (let i = 0; i < toRemoveCount; i++) {
+                        let lowestPlatform = null;
+                        let lowestY = -Infinity;
+                        
+                        platforms.forEach(platform => {
+                            if (!toRemove.includes(platform) && platform.y > lowestY) {
+                                lowestPlatform = platform;
+                                lowestY = platform.y;
+                            }
+                        });
+                        
+                        if (lowestPlatform) {
+                            toRemove.push(lowestPlatform);
+                        }
+                    }
+                    
+                    // Удаляем найденные платформы
+                    toRemove.forEach(platform => platform.destroy());
+                }
+            });
+        }
 
-        // Генерируем новые платформы только если камера поднялась выше последней платформы
-        if (this.lastPlatformY > this.cameras.main.scrollY + 200) {
+        // Проверяем, нужно ли генерировать новые платформы
+        const shouldGenerate = !this.player || this.player.y < this.lastPlatformY + this.platformGenerationBuffer;
+            
+        if (shouldGenerate) {
+            this.lastPlatformGenerationTime = Date.now();
+            
             let currentY = this.lastPlatformY;
+            let platformsGenerated = 0;
 
             for (let row = 0; row < ROWS_TO_GENERATE; row++) {
-                // Высота влияет на сложность: чем выше, тем сложнее
-                const heightFactor = Math.min(1.0, Math.max(0.1, (this.score / 5000)));
+                // Высота влияет на сложность: чем выше, тем сложнее, но не слишком
+                const heightFactor = Math.min(0.7, Math.max(0.1, (this.score / 1000)));
                 
-                // Добавляем случайное вертикальное смещение между рядами
-                // Чем выше, тем больше расстояние может быть (сложнее прыгать)
-                const verticalOffset = Phaser.Math.Between(
-                    MIN_VERTICAL_OFFSET,
-                    MIN_VERTICAL_OFFSET + Math.floor(heightFactor * (MAX_VERTICAL_OFFSET - MIN_VERTICAL_OFFSET))
-                );
+                // Упрощенный расчет вертикального смещения
+                const verticalOffset = MIN_VERTICAL_OFFSET + 
+                    Math.floor(Math.random() * heightFactor * (MAX_VERTICAL_OFFSET - MIN_VERTICAL_OFFSET));
+                
                 currentY -= verticalOffset;
+                this.lastPlatformY = Math.min(this.lastPlatformY, currentY);
                 
-                // Количество платформ в ряду зависит от высоты
-                // Чем выше, тем меньше платформ (сложнее найти опору)
-                const platformsInRow = Phaser.Math.Between(
-                    Math.max(1, Math.floor(4 * (1 - heightFactor * 0.6))),
-                    Math.max(2, Math.floor(6 * (1 - heightFactor * 0.4)))
-                );
+                // Количество платформ в ряду - упрощаем расчет
+                const platformsInRow = 1 + Math.floor(Math.random() * 2);
                 
                 // Создаем массив с платформами в текущем ряду для проверки перекрытий
                 const rowPlatforms = [];
                 
+                let atLeastOnePlatformCreated = false;
+                
                 for (let i = 0; i < platformsInRow; i++) {
-                    // Пробуем создать платформу максимум 10 раз
+                    // Ограничиваем количество попыток создания платформы
                     let attempts = 0;
                     let platformCreated = false;
                     
-                    while (attempts < 10 && !platformCreated) {
+                    while (attempts < 5 && !platformCreated) {
                         attempts++;
                         
-                        // Случайная ширина платформы (уменьшается с высотой)
-                        const widthMultiplier = Phaser.Math.FloatBetween(
-                            0.6 + (1 - heightFactor) * 0.3, 
-                            1.2 + (1 - heightFactor) * 0.4
-                        );
+                        // Упрощаем расчет ширины платформы
+                        const widthMultiplier = 0.9 + Math.random() * 0.5;
                         const width = this.platformWidth * widthMultiplier;
                         
-                        // Случайная позиция X с учетом ширины платформы
-                        const x = Phaser.Math.Between(
-                            this.platformXMin + width / 2,
-                            this.cameras.main.width - this.platformXMin - width / 2
-                        );
+                        // Упрощаем расчет позиции X
+                        const x = this.platformXMin + width / 2 + 
+                            Math.random() * (this.cameras.main.width - 2 * this.platformXMin - width);
                         
-                        // Проверяем, что платформа не перекрывается с существующими в этом ряду
+                        // Проверяем перекрытие с существующими платформами в этом ряду
                         let overlaps = false;
                         for (const platform of rowPlatforms) {
                             if (Math.abs(platform.x - x) < (platform.displayWidth / 2 + width / 2 + MIN_HORIZONTAL_DISTANCE)) {
@@ -553,25 +773,28 @@ class GameScene extends Phaser.Scene {
                             }
                         }
                         
-                        if (!overlaps) {
-                            // Определение типа платформы на основе высоты и очков
+                        if (!overlaps || (i === 0 && attempts >= 3)) {
+                            // Упрощаем определение типа платформы
                             let platformType = 'normal';
                             
-                            // Чем выше, тем больше вероятность появления особых платформ
-                            if (this.score > 1000) {
+                            if (this.score > 200) {
                                 const typeRoll = Math.random();
                                 
-                                // Вероятности особых платформ увеличиваются с высотой
-                                if (typeRoll < heightFactor * 0.25) {
-                                    platformType = 'fragile'; // Хрупкие платформы
-                                } else if (typeRoll < heightFactor * 0.45) {
-                                    platformType = 'slippery'; // Скользкие платформы
-                                } else if (typeRoll < heightFactor * 0.6 && this.score > 2500) {
-                                    platformType = 'vanishing'; // Исчезающие платформы только на большой высоте
+                                if (typeRoll < 0.2) {
+                                    platformType = 'fragile';
+                                } else if (typeRoll < 0.4) {
+                                    platformType = 'slippery';
+                                } else if (typeRoll < 0.5 && this.score > 500) {
+                                    platformType = 'vanishing';
                                 }
                             }
                             
-                            // Создаем платформу с помощью нашего метода createPlatform
+                            // Упрощаем логику гарантированной нормальной платформы
+                            if (!atLeastOnePlatformCreated && (this.score < 400 || Math.random() < 0.7)) {
+                                platformType = 'normal';
+                            }
+                            
+                            // Создаем платформу
                             const platform = this.createPlatform(
                                 x,
                                 currentY,
@@ -580,47 +803,54 @@ class GameScene extends Phaser.Scene {
                                 platformType
                             );
                             
-                            // Иногда воспроизводим звук при создании платформы (10% вероятность)
-                            if (Math.random() < 0.1 && this.sound.get('platform')) {
-                                this.sound.play('platform', { volume: 0.3 });
+                            // Упрощаем логику звуковых эффектов
+                            if (platform) {
+                                rowPlatforms.push(platform);
+                                platformCreated = true;
+                                atLeastOnePlatformCreated = true;
+                                platformsGenerated++;
                             }
-                            
-                            rowPlatforms.push(platform);
-                            platformCreated = true;
-                            
-                            // Обновляем lastPlatformY, если эта платформа выше текущего значения
-                            this.lastPlatformY = Math.min(this.lastPlatformY, currentY);
                         }
                     }
+                }
+                
+                // Если не создано ни одной платформы, создаем одну гарантированную в центре
+                if (!atLeastOnePlatformCreated) {
+                    const x = 200 + Math.random() * 400;
+                    const width = this.platformWidth * 1.0;
+                    this.createPlatform(
+                        x,
+                        currentY,
+                        width,
+                        this.platformHeight,
+                        'normal'
+                    );
+                    
+                    platformsGenerated++;
                 }
             }
         }
     }
 
     getPlatformType(heightInfluence) {
-        // Базовые типы платформ
-        const types = ['normal', 'normal', 'normal'];
-        
-        // Шанс получить особый тип платформы
-        const specialChance = 0.2 + (heightInfluence * 0.3);
+        // Шанс получить особый тип платформы - значительно увеличен
+        const specialChance = 0.6 + (heightInfluence * 0.3); // Было 0.3 + (heightInfluence * 0.5)
         
         // Шанс, что обычная платформа будет заменена на особую
         if (Math.random() < specialChance) {
             // Увеличиваем разнообразие платформ с ростом высоты
-            // На начальных уровнях особых платформ мало
-            // На средних и высоких уровнях особых платформ больше
             let specialTypes = [];
             
-            // На любой высоте могут быть хрупкие платформы
-            specialTypes.push('fragile');
+            // На любой высоте могут быть хрупкие платформы (больше шансов)
+            specialTypes.push('fragile', 'fragile');
             
-            // На средней высоте добавляем скользкие платформы
-            if (heightInfluence > 0.3) {
-                specialTypes.push('slippery');
+            // Скользкие платформы появляются раньше
+            if (heightInfluence > 0.1) { // Было 0.2
+                specialTypes.push('slippery', 'slippery');
             }
             
-            // На большой высоте добавляем исчезающие платформы
-            if (heightInfluence > 0.5) {
+            // Исчезающие платформы появляются раньше
+            if (heightInfluence > 0.2) { // Было 0.3
                 specialTypes.push('vanishing');
             }
             
@@ -632,136 +862,13 @@ class GameScene extends Phaser.Scene {
         return 'normal';
     }
 
-    updateFloodLevel() {
-        // Постепенное увеличение уровня затопления
-        this.floodHeight += this.floodSpeed;
-        
-        // Обновление прямоугольника затопления
-        this.floodRect.height = 10 + 100 * (this.floodSpeed / 0.2); // Визуально увеличиваем высоту воды при росте скорости
-        this.floodRect.y = 600 - this.floodRect.height / 2;
-        
-        // Обновляем текст скорости затопления
-        const floodSpeedMultiplier = Math.round(this.floodSpeed / 0.2 * 10) / 10;
-        this.floodSpeedText.setText(`Скорость воды: ${floodSpeedMultiplier}x`);
-        
-        // Эффект усиления цвета при увеличении скорости
-        if (floodSpeedMultiplier > 1) {
-            const blueValue = Math.max(0, 255 - floodSpeedMultiplier * 30);
-            const color = Phaser.Display.Color.GetColor(0, 0, blueValue);
-            this.floodRect.setFillStyle(color);
-        }
-    }
-
-    increaseFloodSpeed() {
-        // Увеличиваем скорость затопления со временем
-        this.floodSpeed = Math.min(1, this.floodSpeed + 0.1);
-        
-        // Визуальный эффект при увеличении скорости
-        this.cameras.main.flash(300, 0, 0, 255);
-    }
-
-    checkGameOver() {
-        // Проверка, попал ли игрок в зону затопления
-        // Вычисляем реальную Y-координату верхней границы затопления в мировых координатах
-        const floodTopY = 600 - this.floodHeight + this.cameras.main.scrollY;
-        
-        if (this.player.y > floodTopY) {
-            // Проверяем, есть ли активный щит
-            if (this.playerAbilities.checkShield()) {
-                // Если щит активен, просто отменяем падение и даем игроку возможность продолжить
-                this.player.setVelocityY(-300); // Выталкиваем игрока вверх
-                this.cameras.main.flash(300, 0, 128, 255); // Визуальный эффект активации щита
-                return;
-            }
-            
-            this.gameOver = true;
-            this.player.setTint(0xff0000);
-            
-            // Останавливаем физику
-            this.physics.pause();
-            
-            // Останавливаем спаун бонусов
-            this.powerupManager.stopSpawning();
-            
-            // Отображаем сообщение о проигрыше
-            const gameOverText = this.add.text(400, 300, 'Игра окончена', { 
-                fontSize: '48px', 
-                fill: '#fff',
-                stroke: '#000',
-                strokeThickness: 6
-            });
-            gameOverText.setOrigin(0.5);
-            gameOverText.setScrollFactor(0);
-            
-            // Отображаем результат
-            const scoreText = this.add.text(400, 350, `Высота: ${this.score}`, { 
-                fontSize: '32px', 
-                fill: '#fff',
-                stroke: '#000',
-                strokeThickness: 4
-            });
-            scoreText.setOrigin(0.5);
-            scoreText.setScrollFactor(0);
-            
-            const restartText = this.add.text(400, 400, 'Нажмите, чтобы начать снова', { 
-                fontSize: '24px', 
-                fill: '#fff',
-                stroke: '#000',
-                strokeThickness: 4
-            });
-            restartText.setOrigin(0.5);
-            restartText.setScrollFactor(0);
-            
-            // Добавляем возможность перезапуска
-            this.input.on('pointerdown', () => {
-                this.scene.start('StartScene');
-            });
-        }
-    }
-
-    // Метод для возвращения игрока на платформу, если он упал слишком низко
-    respawnPlayer() {
-        // Ищем ближайшую платформу для респауна
-        let closestPlatform = null;
-        let closestDistance = Number.MAX_VALUE;
-        
-        this.allPlatforms.forEach(group => {
-            group.getChildren().forEach(platform => {
-                // Находим только платформы, которые выше игрока (чтобы не респаунить его еще ниже)
-                if (platform.y < this.player.y) {
-                    const distance = Math.abs(platform.y - this.player.y);
-                    if (distance < closestDistance) {
-                        closestDistance = distance;
-                        closestPlatform = platform;
-                    }
-                }
-            });
-        });
-        
-        if (closestPlatform) {
-            // Респауним игрока на ближайшей платформе
-            this.player.x = closestPlatform.x;
-            this.player.y = closestPlatform.y - 30; // 30 пикселей над платформой (было 50)
-            this.player.setVelocity(0, 0);
-            
-            // Визуальный эффект респауна
-            this.cameras.main.flash(300, 255, 0, 0);
-        } else {
-            // Если платформ нет, создаем новую и респауним на ней
-            const respawnY = this.cameras.main.scrollY + 500;
-            const respawnPlatform = this.platforms.create(400, respawnY, 'platform_normal');
-            respawnPlatform.setScale(2, 1).refreshBody(); // Делаем её шире, но не выше
-            
-            this.player.x = 400;
-            this.player.y = respawnY - 30; // 30 пикселей над платформой (было 50)
-            this.player.setVelocity(0, 0);
-            
-            // Визуальный эффект респауна
-            this.cameras.main.flash(300, 255, 0, 0);
-        }
-    }
-
     createPlatform(x, y, width, height, type) {
+        // Проверка входных параметров
+        if (x === undefined || y === undefined || width === undefined || height === undefined) {
+            console.error('Некорректные параметры для создания платформы:', { x, y, width, height, type });
+            return null;
+        }
+        
         // Выбираем соответствующую группу для платформы в зависимости от её типа
         let group;
         switch(type) {
@@ -782,6 +889,12 @@ class GameScene extends Phaser.Scene {
         // Создаем платформу и добавляем в нужную группу
         const platform = group.create(x, y, `platform_${type}`);
         
+        // Проверяем, что платформа создана успешно
+        if (!platform) {
+            console.error('Не удалось создать платформу:', { x, y, width, height, type });
+            return null;
+        }
+        
         // Устанавливаем размер платформы
         platform.setScale(width / platform.width, height / platform.height);
         platform.refreshBody();
@@ -791,6 +904,12 @@ class GameScene extends Phaser.Scene {
         
         // Обновляем последнюю позицию Y
         this.lastPlatformY = Math.min(this.lastPlatformY, y);
+        
+        // Шанс появления бонуса на платформе
+        if (this.powerupManager && Math.random() < this.powerupManager.platformPowerupChance) {
+            // Генерируем бонус прямо над платформой
+            this.powerupManager.spawnPowerupOnPlatform(platform);
+        }
         
         return platform;
     }
