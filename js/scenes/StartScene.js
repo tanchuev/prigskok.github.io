@@ -5,7 +5,7 @@ class StartScene extends Phaser.Scene {
 
     create() {
         // Фон
-        this.add.image(400, 300, 'sky');
+        this.add.image(400, 300, 'background');
         
         // Заголовок игры
         const title = this.add.text(400, 150, 'ПРЫГ-СКОК', {

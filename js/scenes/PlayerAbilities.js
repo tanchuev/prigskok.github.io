@@ -62,14 +62,20 @@ class PlayerAbilities {
                     this.powerups.speed.active = true;
                     this.player.speedMultiplier = 1.5;
                     
-                    // Визуальный эффект
-                    this.player.setTint(0xffff00);
+                    // Визуальный эффект - окрашиваем основной слот в желтый
+                    const rootSlot = this.player.skeleton.findSlot('root');
+                    if (rootSlot) {
+                        rootSlot.color.setFromString("ffff00"); // Устанавливаем желтый цвет
+                    }
                     
                     // Таймер окончания действия
                     this.scene.time.delayedCall(this.powerups.speed.duration, () => {
                         this.powerups.speed.active = false;
                         this.player.speedMultiplier = 1;
-                        this.player.clearTint();
+                        // Сбрасываем цвет слота на белый (исходный)
+                        if (rootSlot) {
+                           rootSlot.color.setFromString("ffffff"); 
+                        }
                     });
                 }
             },
@@ -251,6 +257,9 @@ class PlayerAbilities {
             0.5
         );
         
+        // Устанавливаем depth эффекта прыжка выше платформ
+        circle.setDepth(50);
+        
         // Анимация исчезновения
         this.scene.tweens.add({
             targets: circle,
@@ -278,6 +287,9 @@ class PlayerAbilities {
                 blendMode: 'ADD'
             }
         );
+        
+        // Устанавливаем depth эффекта прыжка с крыльями выше платформ
+        feathers.setDepth(50);
         
         // Удаляем через некоторое время
         this.scene.time.delayedCall(600, () => {

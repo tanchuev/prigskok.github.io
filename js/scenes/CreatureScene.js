@@ -1,68 +1,30 @@
 class CreatureScene extends Phaser.Scene {
     constructor() {
-        super({ key: 'CreatureScene' });
-        this.creature = null;
-        this.currentSkin = 'frank';
-        this.useBouncy = true; // true = используем подпрыгивающую анимацию idle, false = используем статичную анимацию still
+        super('CreatureScene');
+        this.selectedSkin = 'pumpkin'; // Скин по умолчанию (тыква)
+        this.useBouncy = false; // Флаг для анимации
+    }
+
+    init(data) {
+        if (data && data.skin) {
+            this.selectedSkin = data.skin;
+        }
     }
 
     preload() {
-        // Проверка доступности Spine плагина
-        if (!this.spine) {
-            console.error("Spine плагин не найден! Проверьте, что плагин правильно подключен в game.js");
-            // Добавим сообщение об ошибке на экран
-            this.add.text(400, 300, 'ОШИБКА: Spine плагин не найден!', { fontSize: '20px', fill: '#ff0000' }).setOrigin(0.5);
-        } else {
+        // Проверка наличия Spine-плагина
+        if (this.spine && typeof this.spine === 'object') {
             console.log("Spine плагин найден и готов к использованию");
         }
         
-        // Загрузка фона, если его нет
-        if (!this.textures.exists('sky')) {
-            this.load.image('sky', 'https://labs.phaser.io/assets/skies/space3.png');
-        }
-        
-        // Добавим проверку на существование файлов
-        this.verifyFileExists('./assets/images/CreatureScene/HalloweenCreature.skel');
-        this.verifyFileExists('./assets/images/CreatureScene/HalloweenCreature.atlas');
-        this.verifyFileExists('./assets/images/CreatureScene/HalloweenCreature.png');
-        
-        // Загрузка бинарного скелета и атласа
+        // Загрузка Spine-файлов для существ
         this.load.spineBinary('halloween-creature', './assets/images/CreatureScene/HalloweenCreature.skel');
         this.load.spineAtlas('halloween-creature-atlas', './assets/images/CreatureScene/HalloweenCreature.atlas');
-        
-        // Отслеживаем ошибки загрузки
-        this.load.on('loaderror', (file) => {
-            console.error(`Ошибка загрузки файла: ${file.src}`);
-        });
-        
-        // Отслеживаем успешную загрузку
-        this.load.on('filecomplete', (key, type, data) => {
-            console.log(`Файл успешно загружен: ${key}, тип: ${type}`);
-        });
-    }
-
-    // Вспомогательная функция для проверки существования файла
-    verifyFileExists(url) {
-        const xhr = new XMLHttpRequest();
-        xhr.open('HEAD', url, false);
-        try {
-            xhr.send();
-            if (xhr.status >= 200 && xhr.status < 300) {
-                console.log(`Файл существует: ${url}`);
-                return true;
-            } else {
-                console.error(`Файл не существует: ${url}, статус: ${xhr.status}`);
-                return false;
-            }
-        } catch (e) {
-            console.error(`Ошибка проверки файла: ${url}`, e);
-            return false;
-        }
     }
 
     create() {
         // Фон
-        this.add.image(400, 300, 'sky');
+        this.add.image(400, 300, 'background');
         
         // Создание Spine объекта с правильным положением
         this.creature = this.add.spine(
@@ -97,7 +59,7 @@ class CreatureScene extends Phaser.Scene {
         }
 
         // Установка скина по умолчанию (frank, witch, pumpkin, skull)
-        this.setSkin(this.currentSkin);
+        this.setSkin(this.selectedSkin);
         
         // Запуск анимации Idle по умолчанию
         this.showIdle();
@@ -217,8 +179,8 @@ class CreatureScene extends Phaser.Scene {
 
     // Метод для смены скина
     setSkin(skinName) {
-        if (this.currentSkin !== skinName) {
-            this.currentSkin = skinName;
+        if (this.selectedSkin !== skinName) {
+            this.selectedSkin = skinName;
             this.creature.skeleton.setSkinByName(skinName);
             this.creature.skeleton.setSlotsToSetupPose();
         }

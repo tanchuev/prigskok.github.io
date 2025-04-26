@@ -96,6 +96,9 @@ class PowerupManager {
         // Устанавливаем тип бонуса как свойство
         powerup.powerupType = powerupType;
         
+        // Устанавливаем depth ниже, чем у игрока
+        powerup.setDepth(50);
+        
         // Анимация парения
         this.scene.tweens.add({
             targets: powerup,
@@ -115,6 +118,9 @@ class PowerupManager {
             frequency: 100,
             emitting: true
         });
+        
+        // Устанавливаем depth для частиц
+        particles.setDepth(49);
         
         // Связываем частицы с бонусом
         powerup.particles = particles;
@@ -256,6 +262,7 @@ class PowerupManager {
         
         // Создаем вспышку
         const flash = this.scene.add.circle(x, y, 40, color, 0.7);
+        flash.setDepth(80); // Выше платформ, но ниже игрока
         
         // Анимация исчезновения
         this.scene.tweens.add({
@@ -276,6 +283,7 @@ class PowerupManager {
             quantity: 20,
             tint: color
         });
+        particles.setDepth(79); // Выше платформ, но ниже игрока
         
         // Удаляем частицы через некоторое время
         this.scene.time.delayedCall(800, () => {
@@ -287,6 +295,7 @@ class PowerupManager {
     createEarthquakeEffect(x, y) {
         // Создаем вспышку
         const flash = this.scene.add.circle(x, y, 60, 0x8b4513, 0.5);
+        flash.setDepth(80); // Выше платформ, но ниже игрока
         
         // Анимация расширения
         this.scene.tweens.add({
@@ -315,10 +324,12 @@ class PowerupManager {
                 const distance = Phaser.Math.Distance.Between(x, y, platform.x, platform.y);
                 
                 // Если платформа в радиусе действия и не хрупкая
-                if (distance <= radius && platform.texture.key !== 'platform_fragile') {
-                    // Эффект дрожания
+                if (distance <= radius && platform.type !== 'fragile') {
+                    // Эффект дрожания для платформы и ее контейнера
+                    const targets = platform.container ? [platform.container] : [platform];
+                    
                     this.scene.tweens.add({
-                        targets: platform,
+                        targets: targets,
                         x: platform.x + Phaser.Math.Between(-10, 10),
                         y: platform.y + Phaser.Math.Between(-5, 5),
                         duration: 100,
@@ -327,13 +338,13 @@ class PowerupManager {
                     });
                 }
                 // Если хрупкая платформа, сразу разрушаем
-                else if (distance <= radius && platform.texture.key === 'platform_fragile') {
+                else if (distance <= radius && platform.type === 'fragile') {
                     if (!platform.isBreaking) {
                         platform.isBreaking = true;
                         
                         // Анимация разрушения
                         this.scene.tweens.add({
-                            targets: platform,
+                            targets: platform.container || platform,
                             alpha: 0,
                             y: platform.y + 20,
                             duration: 300,

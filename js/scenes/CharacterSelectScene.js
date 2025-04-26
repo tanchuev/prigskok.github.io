@@ -6,13 +6,13 @@ class CharacterSelectScene extends Phaser.Scene {
 
     create() {
         // Фон
-        this.add.image(400, 300, 'sky');
+        this.add.image(400, 300, 'background');
         
         // Заголовок
         const title = this.add.text(400, 100, 'ВЫБЕРИТЕ ПЕРСОНАЖА', {
             fontSize: '36px',
             fill: '#ffffff',
-            fontStyle: 'bold',
+            fontStyle: 'bold', 
             stroke: '#000000',
             strokeThickness: 4
         });
