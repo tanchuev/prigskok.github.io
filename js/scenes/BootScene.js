@@ -35,6 +35,10 @@ class BootScene extends Phaser.Scene {
         this.load.image('sky', 'https://labs.phaser.io/assets/skies/space3.png');
         this.load.image('ground', 'https://labs.phaser.io/assets/sprites/platform.png');
         this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
+        
+        // Загрузка Spine-файлов для существ (необходимо для сцены выбора персонажа)
+        this.load.spineBinary('halloween-creature', './assets/images/CreatureScene/HalloweenCreature.skel');
+        this.load.spineAtlas('halloween-creature-atlas', './assets/images/CreatureScene/HalloweenCreature.atlas');
     }
 
     create() {

@@ -53,7 +53,8 @@ class StartScene extends Phaser.Scene {
             startButton.setStyle({ fill: '#ff0000' });
         });
         startButton.on('pointerup', () => {
-            this.scene.start('GameScene');
+            // Переход к экрану выбора персонажа вместо GameScene
+            this.scene.start('CharacterSelectScene');
         });
         
         // Кнопка для показа существ

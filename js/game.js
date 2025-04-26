@@ -16,7 +16,7 @@ const config = {
             { key: 'spine.SpinePlugin', plugin: spine.SpinePlugin, mapping: 'spine' }
         ]
     },
-    scene: [BootScene, StartScene, GameScene, CreatureScene]
+    scene: [BootScene, StartScene, CharacterSelectScene, GameScene, CreatureScene]
 };
 
 // Проверка инициализации spine плагина

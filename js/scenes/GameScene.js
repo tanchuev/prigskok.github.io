@@ -48,11 +48,19 @@ class GameScene extends Phaser.Scene {
         this.platformGenerationBuffer = 600; // Расстояние в пикселях до верхней платформы, при котором начинается генерация
         this.maxPlatforms = 30; // Ограничиваем количество платформ для производительности
         this.generationRowsCount = 8; // Количество рядов платформ, генерируемых за один вызов
+        
+        // Выбранный скин персонажа (по умолчанию тыква)
+        this.selectedCharacter = 'pumpkin';
     }
 
     init(data) {
         // Получаем высший счет из предыдущих сессий
         this.highestScore = data.highScore || 0;
+        
+        // Получаем выбранного персонажа, если он был передан
+        if (data.selectedCharacter) {
+            this.selectedCharacter = data.selectedCharacter;
+        }
         
         // Сбрасываем флаги нажатия клавиш
         this.leftPressed = false;
@@ -191,8 +199,8 @@ class GameScene extends Phaser.Scene {
         // Создание игрока с использованием Spine
         this.player = this.add.spine(400, this.initialPlayerY, 'halloween-creature', 'halloween-creature-atlas');
         
-        // Устанавливаем скин тыквы
-        this.player.skeleton.setSkinByName('pumpkin');
+        // Устанавливаем выбранный скин персонажа
+        this.player.skeleton.setSkinByName(this.selectedCharacter);
         this.player.skeleton.setSlotsToSetupPose();
         
         // Запускаем анимацию still для начала
@@ -223,8 +231,8 @@ class GameScene extends Phaser.Scene {
         };
         
         // Создаем графику для отображения границ физического тела
-        this.bodyDebug = this.add.graphics();
-        this.bodyDebug.setDepth(100); // Размещаем поверх других объектов
+        // this.bodyDebug = this.add.graphics();
+        // this.bodyDebug.setDepth(100); // Размещаем поверх других объектов
         
         // Сохраняем начальную позицию Y для расчета высоты
         this.initialPlayerY = this.player.y;
@@ -303,15 +311,15 @@ class GameScene extends Phaser.Scene {
         }
         
         // Отрисовка границ физического тела игрока
-        this.bodyDebug.clear();
-        this.bodyDebug.lineStyle(2, 0xff0000, 1);
-        this.bodyDebug.strokeRect(
-            this.player.body.x,
-            this.player.body.y,
-            this.player.body.width,
-            this.player.body.height
-        );
-        this.bodyDebug.setScrollFactor(1);
+        // this.bodyDebug.clear();
+        // this.bodyDebug.lineStyle(2, 0xff0000, 1);
+        // this.bodyDebug.strokeRect(
+        //     this.player.body.x,
+        //     this.player.body.y,
+        //     this.player.body.width,
+        //     this.player.body.height
+        // );
+        // this.bodyDebug.setScrollFactor(1);
         
         // Увеличиваем счетчик времени
         this.gameTime += delta / 1000; // в секундах
@@ -673,8 +681,9 @@ class GameScene extends Phaser.Scene {
             }
             
             // Проигрываем анимацию движения влево и отражаем спрайт
+            // Поворачиваем персонажа влево, даже если он в воздухе
+            this.player.setFlipX(false);
             if (onGround) {
-                this.player.setFlipX(false);
                 if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'idle') {
                     this.player.animationState.setAnimation(0, 'idle', true);
                     this.player.animationState.timeScale = 0.5;
@@ -696,8 +705,9 @@ class GameScene extends Phaser.Scene {
             }
             
             // Проигрываем анимацию движения вправо и не отражаем спрайт
+            // Поворачиваем персонажа вправо, даже если он в воздухе
+            this.player.setFlipX(true);
             if (onGround) {
-                this.player.setFlipX(true);
                 if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'idle') {
                     this.player.animationState.setAnimation(0, 'idle', true);
                     this.player.animationState.timeScale = 0.5;
