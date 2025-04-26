@@ -25,7 +25,7 @@ class PlayerAbilities {
                     if (this.abilities.doubleJump.available && !this.player.body.touching.down) {
                         // Округляем значение для прыжка
                         const jumpVelocity = Math.round(this.player.jumpStrength);
-                        this.player.setVelocityY(jumpVelocity);
+                        this.player.body.setVelocityY(jumpVelocity);
                         
                         this.abilities.doubleJump.available = false;
                         this.abilities.doubleJump.lastUsed = Date.now();
@@ -176,7 +176,7 @@ class PlayerAbilities {
                     if (this.powerups.wings.active && this.powerups.wings.jumpsLeft > 0 && !this.player.body.touching.down) {
                         // Округляем значение для прыжка с крыльями
                         const jumpVelocity = Math.round(this.player.jumpStrength);
-                        this.player.setVelocityY(jumpVelocity);
+                        this.player.body.setVelocityY(jumpVelocity);
                         
                         this.powerups.wings.jumpsLeft--;
                         
@@ -220,7 +220,7 @@ class PlayerAbilities {
         if (this.player.body.touching.down) {
             // Округляем значение для прыжка
             const jumpVelocity = Math.round(this.player.jumpStrength);
-            this.player.setVelocityY(jumpVelocity); // jumpStrength уже содержит отрицательное значение
+            this.player.body.setVelocityY(jumpVelocity); // jumpStrength уже содержит отрицательное значение
             
             // Визуальный эффект
             this.createJumpEffect();

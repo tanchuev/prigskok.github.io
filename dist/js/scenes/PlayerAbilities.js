@@ -220,7 +220,7 @@ class PlayerAbilities {
         if (this.player.body.touching.down) {
             // Округляем значение для прыжка
             const jumpVelocity = Math.round(this.player.jumpStrength);
-            this.player.setVelocityY(jumpVelocity); // jumpStrength уже содержит отрицательное значение
+            this.player.body.setVelocityY(jumpVelocity); // jumpStrength уже содержит отрицательное значение
             
             // Визуальный эффект
             this.createJumpEffect();
