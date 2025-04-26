@@ -78,7 +78,7 @@ function create() {
     this.physics.add.collider(player, platforms);
     
     // Счет
-    this.scoreText = this.add.text(16, 16, 'Высота: 0', { fontSize: '32px', fill: '#fff' });
+    this.scoreText = this.add.text(16, 16, 'Высота: 0', { fontFamily: 'unutterable', fontSize: '32px', fill: '#fff' });
     
     // Уровень затопления
     this.floodRect = this.add.rectangle(400, 600, 800, 10, 0x0000ff);
@@ -114,8 +114,8 @@ function update() {
         this.physics.pause();
         player.setTint(0xff0000);
         gameOver = true;
-        this.add.text(400, 300, 'Игра окончена', { fontSize: '48px', fill: '#fff' }).setOrigin(0.5);
-        this.add.text(400, 350, 'Нажмите F5 для перезапуска', { fontSize: '24px', fill: '#fff' }).setOrigin(0.5);
+        this.add.text(400, 300, 'Игра окончена', { fontFamily: 'unutterable', fontSize: '48px', fill: '#fff' }).setOrigin(0.5);
+        this.add.text(400, 350, 'Нажмите F5 для перезапуска', { fontFamily: 'unutterable', fontSize: '24px', fill: '#fff' }).setOrigin(0.5);
     }
     
     // Медленно поднимаем уровень затопления

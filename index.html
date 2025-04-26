@@ -4,11 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Прыг-Скок: Командная Высота</title>
-    <!-- Подключение шрифтов через Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Nosifer&display=swap" rel="stylesheet">
+    <!-- Подключение локального шрифта -->
     <style>
+        @font-face {
+            font-family: 'unutterable';
+            src: url('assets/fonts/unutterable.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        
         body {
             margin: 0;
             padding: 0;
@@ -26,10 +30,10 @@
             display: block;
         }
         
-        /* Предзагрузка шрифтов не требуется при использовании Google Fonts */
+        /* Предзагрузка шрифта */
         .fontPreload {
             position: absolute;
-            font-family: 'Nosifer', 'Creepster', cursive;
+            font-family: 'unutterable';
             visibility: hidden;
             left: -10000px;
         }

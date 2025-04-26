@@ -66,6 +66,7 @@ class CreatureScene extends Phaser.Scene {
 
         // Добавление заголовка и инструкций
         this.add.text(400, 30, 'Хэллоуинские Существа', {
+            fontFamily: 'unutterable',
             fontSize: '32px',
             fill: '#ffffff',
             stroke: '#000000',
@@ -85,6 +86,7 @@ class CreatureScene extends Phaser.Scene {
         
         for (let i = 0; i < instructions.length; i++) {
             this.add.text(120, 80 + i * 25, instructions[i], {
+                fontFamily: 'unutterable',
                 fontSize: '18px',
                 fill: '#ffffff',
                 stroke: '#000000',
@@ -94,6 +96,7 @@ class CreatureScene extends Phaser.Scene {
         
         // Кнопка возврата в меню
         const backButton = this.add.text(400, 550, 'Вернуться в меню', {
+            fontFamily: 'unutterable',
             fontSize: '24px',
             fill: '#ffffff',
             stroke: '#000000',

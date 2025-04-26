@@ -13,7 +13,7 @@ class PauseScene extends Phaser.Scene {
         
         // Заголовок "Пауза"
         this.add.text(400, 200, 'ПАУЗА', {
-            fontFamily: 'Creepster',
+            fontFamily: 'unutterable',
             fontSize: '64px',
             color: '#ffffff',
             align: 'center',
@@ -23,7 +23,7 @@ class PauseScene extends Phaser.Scene {
         
         // Кнопка "Продолжить"
         const continueButton = this.add.text(400, 300, 'Продолжить', {
-            fontFamily: 'Creepster',
+            fontFamily: 'unutterable',
             fontSize: '32px',
             color: '#ffffff',
             align: 'center',
@@ -37,7 +37,7 @@ class PauseScene extends Phaser.Scene {
         
         // Кнопка "Главное меню"
         const menuButton = this.add.text(400, 380, 'Главное меню', {
-            fontFamily: 'Creepster',
+            fontFamily: 'unutterable',
             fontSize: '32px',
             color: '#ffffff',
             align: 'center',

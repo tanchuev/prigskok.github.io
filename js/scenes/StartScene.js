@@ -9,6 +9,7 @@ class StartScene extends Phaser.Scene {
         
         // Заголовок игры
         const title = this.add.text(400, 150, 'ПРЫГ-СКОК', {
+            fontFamily: 'unutterable',
             fontSize: '64px',
             fill: '#ffffff',
             fontStyle: 'bold',
@@ -19,6 +20,7 @@ class StartScene extends Phaser.Scene {
         
         // Подзаголовок
         const subtitle = this.add.text(400, 230, 'Командная Высота', {
+            fontFamily: 'unutterable',
             fontSize: '32px',
             fill: '#ffffff',
             stroke: '#000000',
@@ -28,6 +30,7 @@ class StartScene extends Phaser.Scene {
         
         // Кнопка начала игры
         const startButton = this.add.text(400, 350, 'Начать игру', {
+            fontFamily: 'unutterable',
             fontSize: '36px',
             fill: '#ffffff',
             stroke: '#000000',
@@ -59,6 +62,7 @@ class StartScene extends Phaser.Scene {
         
         // Кнопка для показа существ
         const creaturesButton = this.add.text(400, 390, 'Хэллоуинские Существа', {
+            fontFamily: 'unutterable',
             fontSize: '26px',
             fill: '#ffffff',
             stroke: '#000000',
@@ -98,6 +102,7 @@ class StartScene extends Phaser.Scene {
         // Создаем текст с инструкциями
         for (let i = 0; i < instructions.length; i++) {
             this.add.text(400, 470 + i * 30, instructions[i], {
+                fontFamily: 'unutterable',
                 fontSize: '18px',
                 fill: '#ffffff',
                 stroke: '#000000',

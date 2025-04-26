@@ -159,28 +159,6 @@ class GameScene extends Phaser.Scene {
         this.bg = this.add.tileSprite(400, 300, 800, 600, 'bg');
         this.bg.setScrollFactor(0);
         
-        // Создаем графику для отображения рамок коллизий
-        this.debugGraphics = this.add.graphics();
-        this.debugGraphics.setDepth(90); // Ниже персонажа, но выше платформ
-        this.showDebugCollisions = true; // Флаг для включения/отключения отображения
-        
-        // Добавляем клавишу для переключения режима отладки
-        this.input.keyboard.on('keydown-D', () => {
-            this.showDebugCollisions = !this.showDebugCollisions;
-            console.log('Debug mode:', this.showDebugCollisions ? 'on' : 'off');
-            
-            // Обновляем видимость текста отладки
-            if (this.debugText) {
-                this.debugText.setVisible(this.showDebugCollisions);
-            }
-        });
-        
-        // Добавляем информационный текст для отладки
-        this.debugText = this.add.text(16, 90, 
-            'Режим отладки: D - вкл/выкл\nКрасный - физические коллизии\nСиний - границы контейнера\nЗелёный - части текстур\n+/- - изменить масштаб текстур', 
-            { fontSize: '14px', fill: '#ffffff', stroke: '#000000', strokeThickness: 3 });
-        this.debugText.setScrollFactor(0).setDepth(100);
-        
         // Группы платформ
         this.platforms = this.physics.add.staticGroup();
         this.fragilePlatforms = this.physics.add.staticGroup();
@@ -201,7 +179,7 @@ class GameScene extends Phaser.Scene {
         this.createPlatform(
             400, 
             600, 
-            this.platformWidth * 2.5, 
+            this.platformWidth * 1.4, 
             this.platformHeight, 
             'normal'
         );
@@ -248,10 +226,6 @@ class GameScene extends Phaser.Scene {
                 this.body.setOffset(bodyOffsetX_Left, bodyOffsetY);
             }
         };
-        
-        // Создаем графику для отображения границ физического тела
-        this.bodyDebug = this.add.graphics();
-        this.bodyDebug.setDepth(100); // Размещаем поверх других объектов
         
         // Сохраняем начальную позицию Y для расчета высоты
         this.initialPlayerY = this.player.y;
@@ -324,7 +298,7 @@ class GameScene extends Phaser.Scene {
             .setDepth(100);
 
         const pauseText = this.add.text(750, 50, 'II', {
-            fontFamily: 'Creepster',
+            fontFamily: 'unutterable',
             fontSize: '32px',
             color: '#00FFFF',
             align: 'center'
@@ -333,19 +307,6 @@ class GameScene extends Phaser.Scene {
         pauseButton.on('pointerdown', () => {
             this.scene.pause();
             this.scene.launch('PauseScene', { gameScene: 'GameScene' });
-        });
-
-        // Добавляем клавиши для изменения масштаба текстур
-        this.input.keyboard.on('keydown-PLUS', () => {
-            this.platformTextureScale += 0.05;
-            this.updatePlatformScales();
-            console.log('Platform texture scale:', this.platformTextureScale);
-        });
-        
-        this.input.keyboard.on('keydown-MINUS', () => {
-            this.platformTextureScale = Math.max(0.1, this.platformTextureScale - 0.05);
-            this.updatePlatformScales();
-            console.log('Platform texture scale:', this.platformTextureScale);
         });
     }
 
@@ -373,70 +334,6 @@ class GameScene extends Phaser.Scene {
     update(time, delta) {
         if (this.gameOver) {
             return;
-        }
-        
-        // Отрисовка границ физического тела игрока (Закомментировано)
-        /*
-        this.bodyDebug.clear();
-        this.bodyDebug.lineStyle(2, 0xff0000, 1);
-        this.bodyDebug.strokeRect(
-            this.player.body.x,
-            this.player.body.y,
-            this.player.body.width,
-            this.player.body.height
-        );
-        this.bodyDebug.setScrollFactor(1);
-        */
-        
-        // Отображение рамок коллизий платформ
-        if (this.showDebugCollisions) {
-            this.debugGraphics.clear();
-            
-            // Рамки физических коллизий (красные)
-            this.debugGraphics.lineStyle(2, 0xff0000, 1);
-            
-            // Отображаем коллизии для всех платформ
-            this.allPlatforms.forEach(group => {
-                group.getChildren().forEach(platform => {
-                    // Рамка физической коллизии
-                    this.debugGraphics.strokeRect(
-                        platform.body.x,
-                        platform.body.y,
-                        platform.body.width,
-                        platform.body.height
-                    );
-                    
-                    // Отображаем границы контейнера (синие)
-                    if (platform.container) {
-                        this.debugGraphics.lineStyle(2, 0x0000ff, 1);
-                        
-                        // Общая рамка контейнера
-                        const bounds = platform.container.getBounds();
-                        this.debugGraphics.strokeRect(
-                            bounds.x,
-                            bounds.y,
-                            bounds.width,
-                            bounds.height
-                        );
-                        
-                        // Отображаем каждую часть в контейнере (зеленые)
-                        this.debugGraphics.lineStyle(1, 0x00ff00, 0.5);
-                        platform.container.list.forEach(part => {
-                            if (part.getBounds) {
-                                const partBounds = part.getBounds();
-                                this.debugGraphics.strokeRect(
-                                    partBounds.x,
-                                    partBounds.y,
-                                    partBounds.width,
-                                    partBounds.height
-                                );
-                            }
-                        });
-                    }
-                });
-            });
-            
-            this.debugGraphics.setScrollFactor(1);
         }
         
         // Увеличиваем счетчик времени
@@ -486,7 +383,6 @@ class GameScene extends Phaser.Scene {
             
             const platformGenerationThreshold = this.lastPlatformY + this.platformGenerationBuffer;
             if (this.player.y < platformGenerationThreshold) {
-                console.log(`Запускаем генерацию платформ, игрок Y=${this.player.y}, порог=${platformGenerationThreshold}`);
                 this.generatePlatforms();
             }
         }
@@ -538,8 +434,6 @@ class GameScene extends Phaser.Scene {
                     }
                 });
             });
-            
-            console.log(`Очистка старых платформ, порог: ${cleanupThreshold}`);
         }
         
         // Базовое управление
@@ -748,6 +642,7 @@ class GameScene extends Phaser.Scene {
     createUI() {
         // Создание UI элементов с фиксированной позицией относительно камеры
         this.scoreText = this.add.text(16, 16, 'Высота: 0', { 
+            fontFamily: 'unutterable',
             fontSize: '32px', 
             fill: '#fff',
             stroke: '#000',
@@ -760,6 +655,7 @@ class GameScene extends Phaser.Scene {
             // Создаем подсказки по управлению
             const controlHint = this.add.text(16, 60, 
                 'Управление: ←→ - движение, ПРОБЕЛ - прыжок, S - супер-прыжок', { 
+                fontFamily: 'unutterable',
                 fontSize: '16px', 
                 fill: '#fff',
                 stroke: '#000',
@@ -812,6 +708,7 @@ class GameScene extends Phaser.Scene {
             
             // Текстовые подсказки на кнопках
             const jumpText = this.add.text(700, 500, "П", {
+                fontFamily: 'unutterable',
                 fontSize: '32px',
                 fill: '#fff'
             }).setOrigin(0.5);
@@ -991,11 +888,6 @@ class GameScene extends Phaser.Scene {
         const totalPlatforms = this.platforms.countActive() + this.fragilePlatforms.countActive() + 
             this.slipperyPlatforms.countActive() + this.vanishingPlatforms.countActive() + this.stickyPlatforms.countActive();
             
-        // Логируем только в режиме отладки или с меньшей частотой
-        if (totalPlatforms % 10 === 0) {
-            console.log(`Генерация платформ. Всего: ${totalPlatforms}, Высота: ${this.score}, lastPlatformY: ${this.lastPlatformY}`);
-        }
-        
         // Если платформ нет, создаем начальную
         if (totalPlatforms === 0) {
             this.createPlatform(
@@ -1357,8 +1249,5 @@ class GameScene extends Phaser.Scene {
                 }
             });
         });
-        
-        // Выводим текущий масштаб в консоль
-        console.log(`Текущий масштаб текстур платформ: ${this.platformTextureScale}`);
     }
 } 

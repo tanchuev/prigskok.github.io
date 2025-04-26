@@ -10,6 +10,7 @@ class CharacterSelectScene extends Phaser.Scene {
         
         // Заголовок
         const title = this.add.text(400, 100, 'ВЫБЕРИТЕ ПЕРСОНАЖА', {
+            fontFamily: 'unutterable',
             fontSize: '36px',
             fill: '#ffffff',
             fontStyle: 'bold', 
@@ -47,6 +48,7 @@ class CharacterSelectScene extends Phaser.Scene {
             
             // Добавляем текст с именем персонажа
             const nameText = this.add.text(0, 70, char.displayName, {
+                fontFamily: 'unutterable',
                 fontSize: '18px',
                 fill: '#ffffff',
                 stroke: '#000000',
@@ -92,6 +94,7 @@ class CharacterSelectScene extends Phaser.Scene {
         
         // Кнопка "Играть"
         const playButton = this.add.text(400, 520, 'ИГРАТЬ', {
+            fontFamily: 'unutterable',
             fontSize: '32px',
             fill: '#ffffff',
             backgroundColor: '#338833',
@@ -123,6 +126,7 @@ class CharacterSelectScene extends Phaser.Scene {
         
         // Кнопка "Назад"
         const backButton = this.add.text(100, 40, '← НАЗАД', {
+            fontFamily: 'unutterable',
             fontSize: '20px',
             fill: '#ffffff',
             stroke: '#000000',

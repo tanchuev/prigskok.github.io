@@ -6,6 +6,7 @@ class BootScene extends Phaser.Scene {
     preload() {
         // Создаем текст загрузки
         const loadingText = this.add.text(400, 300, 'Загрузка...', {
+            fontFamily: 'unutterable',
             fontSize: '32px',
             fill: '#ffffff'
         });

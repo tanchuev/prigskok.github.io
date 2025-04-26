@@ -14,7 +14,7 @@ class GameOverScene extends Phaser.Scene {
         
         // Заголовок "Игра окончена"
         this.add.text(400, 150, 'ИГРА ОКОНЧЕНА', {
-            fontFamily: 'Creepster',
+            fontFamily: 'unutterable',
             fontSize: '64px',
             color: '#ff0000',
             align: 'center',
@@ -24,7 +24,7 @@ class GameOverScene extends Phaser.Scene {
         
         // Отображаем счет
         this.add.text(400, 250, `Высота: ${this.score}`, {
-            fontFamily: 'Creepster',
+            fontFamily: 'unutterable',
             fontSize: '48px',
             color: '#ffffff',
             align: 'center',
@@ -34,7 +34,7 @@ class GameOverScene extends Phaser.Scene {
         
         // Кнопка "Играть снова"
         const playAgainButton = this.add.text(400, 350, 'Играть снова', {
-            fontFamily: 'Creepster',
+            fontFamily: 'unutterable',
             fontSize: '32px',
             color: '#ffffff',
             align: 'center',
@@ -48,7 +48,7 @@ class GameOverScene extends Phaser.Scene {
         
         // Кнопка "Главное меню"
         const menuButton = this.add.text(400, 430, 'Главное меню', {
-            fontFamily: 'Creepster',
+            fontFamily: 'unutterable',
             fontSize: '32px',
             color: '#ffffff',
             align: 'center',
