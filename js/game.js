@@ -11,8 +11,20 @@ const config = {
             debug: false
         }
     },
-    scene: [BootScene, StartScene, GameScene]
+    plugins: {
+        scene: [
+            { key: 'spine.SpinePlugin', plugin: spine.SpinePlugin, mapping: 'spine' }
+        ]
+    },
+    scene: [BootScene, StartScene, GameScene, CreatureScene]
 };
+
+// Проверка инициализации spine плагина
+if (typeof spine === 'undefined' || typeof spine.SpinePlugin === 'undefined') {
+    console.error('Spine плагин не загружен! Проверьте подключение spine-phaser-v3.js в index.html');
+} else {
+    console.log('Spine плагин готов к использованию');
+}
 
 // Создание игры
 const game = new Phaser.Game(config);

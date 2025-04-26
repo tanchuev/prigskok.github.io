@@ -25,12 +25,27 @@
 </head>
 <body>
     <div id="game-container"></div>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@esotericsoftware/spine-phaser-v3@4.2.80/dist/iife/spine-phaser-v3.js"></script>
+    
+    <script>
+    window.addEventListener('load', function() {
+        if (typeof spine === 'undefined') {
+            console.error('Spine плагин не загружен!');
+            alert('Не удалось загрузить Spine плагин. Пожалуйста, проверьте консоль браузера.');
+        } else {
+            console.log('Spine плагин успешно загружен:', spine.version || 'версия не определена');
+            console.log('Phaser версия:', Phaser.VERSION);
+        }
+    });
+    </script>
+    
     <script src="js/scenes/PlayerAbilities.js"></script>
     <script src="js/scenes/PowerupManager.js"></script>
     <script src="js/scenes/BootScene.js"></script>
     <script src="js/scenes/StartScene.js"></script>
     <script src="js/scenes/GameScene.js"></script>
+    <script src="js/scenes/CreatureScene.js"></script>
     <script src="js/game.js"></script>
 </body>
 </html> 

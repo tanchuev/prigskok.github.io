@@ -56,6 +56,36 @@ class StartScene extends Phaser.Scene {
             this.scene.start('GameScene');
         });
         
+        // Кнопка для показа существ
+        const creaturesButton = this.add.text(400, 390, 'Хэллоуинские Существа', {
+            fontSize: '26px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 3,
+            padding: {
+                x: 20,
+                y: 10
+            }
+        });
+        creaturesButton.setOrigin(0.5);
+        creaturesButton.setInteractive();
+        
+        // Анимация кнопки при наведении
+        creaturesButton.on('pointerover', () => {
+            creaturesButton.setStyle({ fill: '#ff8800' });
+        });
+        creaturesButton.on('pointerout', () => {
+            creaturesButton.setStyle({ fill: '#ffffff' });
+        });
+        
+        // Переход к сцене с существами
+        creaturesButton.on('pointerdown', () => {
+            creaturesButton.setStyle({ fill: '#ff0000' });
+        });
+        creaturesButton.on('pointerup', () => {
+            this.scene.start('CreatureScene');
+        });
+        
         // Инструкции
         const instructions = [
             'Управление:',
@@ -66,7 +96,7 @@ class StartScene extends Phaser.Scene {
         
         // Создаем текст с инструкциями
         for (let i = 0; i < instructions.length; i++) {
-            this.add.text(400, 430 + i * 30, instructions[i], {
+            this.add.text(400, 470 + i * 30, instructions[i], {
                 fontSize: '18px',
                 fill: '#ffffff',
                 stroke: '#000000',
