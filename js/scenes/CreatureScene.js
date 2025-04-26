@@ -73,7 +73,7 @@ class CreatureScene extends Phaser.Scene {
         );
         
         // Устанавливаем масштаб существа для размера примерно 50x50
-        this.creature.setScale(0.15);
+        this.creature.setScale(0.08);
         
         // Включаем отображение отладочной информации
         console.log("Spine объект создан:", this.creature);

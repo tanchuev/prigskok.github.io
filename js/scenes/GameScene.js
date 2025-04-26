@@ -199,15 +199,32 @@ class GameScene extends Phaser.Scene {
         this.player.animationState.setAnimation(0, 'still', true);
         
         // Устанавливаем масштаб объекта Spine
-        this.player.setScale(0.15);
+        this.player.setScale(0.08);
         
         // Добавляем физическое тело к Spine-объекту
         this.physics.add.existing(this.player);
         
         // Настройка физического тела
-        this.player.body.setSize(80, 80);
-        this.player.body.setOffset(-40, -40);
+        // this.player.body.setSize(400, 400);
+        this.player.body.setOffset(0, 0);
         this.player.body.setBounce(0.2);
+        
+        // Добавляем функцию для правильного отражения персонажа
+        this.player.setFlipX = function(flip) {
+            if (flip) {
+                // Отражение вправо
+                this.scaleX = -0.08;
+                this.body.setOffset(300, 0);
+            } else {
+                // Отражение влево (или исходное состояние)
+                this.scaleX = 0.08;
+                this.body.setOffset(0, 0);
+            }
+        };
+        
+        // Создаем графику для отображения границ физического тела
+        this.bodyDebug = this.add.graphics();
+        this.bodyDebug.setDepth(100); // Размещаем поверх других объектов
         
         // Сохраняем начальную позицию Y для расчета высоты
         this.initialPlayerY = this.player.y;
@@ -284,6 +301,17 @@ class GameScene extends Phaser.Scene {
         if (this.gameOver) {
             return;
         }
+        
+        // Отрисовка границ физического тела игрока
+        this.bodyDebug.clear();
+        this.bodyDebug.lineStyle(2, 0xff0000, 1);
+        this.bodyDebug.strokeRect(
+            this.player.body.x,
+            this.player.body.y,
+            this.player.body.width,
+            this.player.body.height
+        );
+        this.bodyDebug.setScrollFactor(1);
         
         // Увеличиваем счетчик времени
         this.gameTime += delta / 1000; // в секундах
@@ -442,12 +470,12 @@ class GameScene extends Phaser.Scene {
             // Проверяем направление движения для правильной анимации
             if (player.body.velocity.x < 0) {
                 // Движение влево
-                player.scaleX = 0.15; // Отразить спрайт по горизонтали
+                player.setFlipX(false);
                 player.animationState.setAnimation(0, 'idle', true);
                 player.animationState.timeScale = 0.5;
             } else if (player.body.velocity.x > 0) {
                 // Движение вправо
-                player.scaleX = -0.15;
+                player.setFlipX(true);
                 player.animationState.setAnimation(0, 'idle', true);
                 player.animationState.timeScale = 0.5;
             } else {
@@ -646,7 +674,7 @@ class GameScene extends Phaser.Scene {
             
             // Проигрываем анимацию движения влево и отражаем спрайт
             if (onGround) {
-                this.player.scaleX = 0.15; // Отражаем спрайт по горизонтали для движения влево
+                this.player.setFlipX(false);
                 if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'idle') {
                     this.player.animationState.setAnimation(0, 'idle', true);
                     this.player.animationState.timeScale = 0.5;
@@ -669,7 +697,7 @@ class GameScene extends Phaser.Scene {
             
             // Проигрываем анимацию движения вправо и не отражаем спрайт
             if (onGround) {
-                this.player.scaleX = -0.15; // Нормальный масштаб для движения вправо
+                this.player.setFlipX(true);
                 if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'idle') {
                     this.player.animationState.setAnimation(0, 'idle', true);
                     this.player.animationState.timeScale = 0.5;
@@ -747,7 +775,7 @@ class GameScene extends Phaser.Scene {
         else if (onGround && isMoving) {
             // Определяем направление движения для правильной ориентации
             if (this.player.body.velocity.x < 0) {
-                this.player.scaleX = 0.15; // Отражаем спрайт по горизонтали для движения влево
+                this.player.setFlipX(false);
                 
                 if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'idle') {
                     this.player.animationState.setAnimation(0, 'idle', true);
@@ -755,7 +783,7 @@ class GameScene extends Phaser.Scene {
                 }
             } 
             else if (this.player.body.velocity.x > 0) {
-                this.player.scaleX = -0.15; // Исходный масштаб для движения вправо
+                this.player.setFlipX(true);
                 
                 if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'idle') {
                     this.player.animationState.setAnimation(0, 'idle', true);
