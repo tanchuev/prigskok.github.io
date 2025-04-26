@@ -212,27 +212,32 @@ class GameScene extends Phaser.Scene {
         // Добавляем физическое тело к Spine-объекту
         this.physics.add.existing(this.player);
         
+        // Константы для "идеальных" настроек физического тела
+        const bodyWidth = 600;
+        const bodyHeight = 700;
+        const bodyOffsetX_Left = -150; // Смещение X, когда смотрит влево
+        const bodyOffsetY = -bodyHeight;      // Постоянное смещение Y
+
         // Настройка физического тела
-        // this.player.body.setSize(400, 400);
-        this.player.body.setOffset(0, 0);
+        this.player.body.setSize(bodyWidth, bodyHeight);
+        this.player.body.setOffset(bodyOffsetX_Left, bodyOffsetY); // Начальное смещение (влево)
         this.player.body.setBounce(0.2);
         
         // Добавляем функцию для правильного отражения персонажа
         this.player.setFlipX = function(flip) {
-            if (flip) {
-                // Отражение вправо
+            if (flip) { // Отражение вправо
                 this.scaleX = -0.08;
-                this.body.setOffset(300, 0);
-            } else {
-                // Отражение влево (или исходное состояние)
+                const offsetX_Right = bodyOffsetX_Left + bodyWidth; // Формула
+                this.body.setOffset(offsetX_Right, bodyOffsetY);
+            } else { // Отражение влево (или исходное состояние)
                 this.scaleX = 0.08;
-                this.body.setOffset(0, 0);
+                this.body.setOffset(bodyOffsetX_Left, bodyOffsetY);
             }
         };
         
         // Создаем графику для отображения границ физического тела
-        // this.bodyDebug = this.add.graphics();
-        // this.bodyDebug.setDepth(100); // Размещаем поверх других объектов
+        this.bodyDebug = this.add.graphics();
+        this.bodyDebug.setDepth(100); // Размещаем поверх других объектов
         
         // Сохраняем начальную позицию Y для расчета высоты
         this.initialPlayerY = this.player.y;
@@ -311,15 +316,15 @@ class GameScene extends Phaser.Scene {
         }
         
         // Отрисовка границ физического тела игрока
-        // this.bodyDebug.clear();
-        // this.bodyDebug.lineStyle(2, 0xff0000, 1);
-        // this.bodyDebug.strokeRect(
-        //     this.player.body.x,
-        //     this.player.body.y,
-        //     this.player.body.width,
-        //     this.player.body.height
-        // );
-        // this.bodyDebug.setScrollFactor(1);
+        this.bodyDebug.clear();
+        this.bodyDebug.lineStyle(2, 0xff0000, 1);
+        this.bodyDebug.strokeRect(
+            this.player.body.x,
+            this.player.body.y,
+            this.player.body.width,
+            this.player.body.height
+        );
+        this.bodyDebug.setScrollFactor(1);
         
         // Увеличиваем счетчик времени
         this.gameTime += delta / 1000; // в секундах
@@ -473,7 +478,7 @@ class GameScene extends Phaser.Scene {
     }
 
     playerHitPlatform(player, platform) {
-        // Если игрок приземлился на платформу
+        // Если игрок приземлился на платформу (касание снизу игрока)
         if (player.body.touching.down) {
             // Проверяем направление движения для правильной анимации
             if (player.body.velocity.x < 0) {
@@ -491,26 +496,12 @@ class GameScene extends Phaser.Scene {
                 player.animationState.setAnimation(0, 'still', true);
             }
         }
-        
-        // Обработка столкновения с разными типами платформ
-        
-        // Сбрасываем доступность двойного прыжка при касании любой платформы
-        if (this.playerAbilities && player.body.touching.down) {
-            // Если двойной прыжок на перезарядке, не сбрасываем таймер
-            if (!this.playerAbilities.abilities.doubleJump.available &&
-                Date.now() - this.playerAbilities.abilities.doubleJump.lastUsed < this.playerAbilities.abilities.doubleJump.cooldown) {
-                // Перезарядка в процессе, не восстанавливаем
-            } else {
-                // Восстанавливаем доступность двойного прыжка
-                this.playerAbilities.abilities.doubleJump.available = true;
-                
-                // Обновляем UI индикатор
-                this.playerAbilities.updateAbilityIndicators();
-            }
-        }
-        
-        // Хрупкие платформы
-        if (platform.texture.key === 'platform_fragile' && player.body.touching.down) {
+
+        // Обработка разных типов платформ (этот код выполняется независимо от направления касания)
+        const platformType = platform.getData('type');
+
+        // Если платформа хрупкая
+        if (platformType === 'fragile') {
             // Если игрок стоит на хрупкой платформе, запускаем таймер разрушения
             if (!platform.isBreaking) {
                 platform.isBreaking = true;
@@ -535,18 +526,32 @@ class GameScene extends Phaser.Scene {
                 });
             }
         }
-        
-        // Скользкие платформы
-        if (platform.texture.key === 'platform_slippery' && player.body.touching.down) {
+        // Если платформа скользкая
+        else if (platformType === 'slippery') {
             // Снижаем трение на скользких платформах
             player.body.friction.x = 0.05;
-        } else if (player.body.touching.down) {
-            // Возвращаем нормальное трение на других платформах
-            player.body.friction.x = 1;
+        } else {
+            // Для обычных платформ сбрасываем флаг скольжения, если он был установлен
+            this.isSlipping = false;
+        }
+        
+        // Сбрасываем доступность двойного прыжка при касании любой платформы
+        if (this.playerAbilities && player.body.touching.down) {
+            // Если двойной прыжок на перезарядке, не сбрасываем таймер
+            if (!this.playerAbilities.abilities.doubleJump.available &&
+                Date.now() - this.playerAbilities.abilities.doubleJump.lastUsed < this.playerAbilities.abilities.doubleJump.cooldown) {
+                // Перезарядка в процессе, не восстанавливаем
+            } else {
+                // Восстанавливаем доступность двойного прыжка
+                this.playerAbilities.abilities.doubleJump.available = true;
+                
+                // Обновляем UI индикатор
+                this.playerAbilities.updateAbilityIndicators();
+            }
         }
         
         // Исчезающие платформы
-        if (platform.texture.key === 'platform_vanishing' && player.body.touching.down) {
+        if (platformType === 'vanishing' && player.body.touching.down) {
             if (!platform.isVanishing) {
                 platform.isVanishing = true;
                 
