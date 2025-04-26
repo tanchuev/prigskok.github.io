@@ -36,13 +36,14 @@ class GameScene extends Phaser.Scene {
         // Параметры для масштабирования текстур платформ
         this.platformTextureScale = 0.25; // Уменьшаем масштаб текстур
         
+        
         // Разные типы платформ
         this.platformTypes = {
-            normal: { chance: 30 }, // Обычная платформа (было 50, изначально 60)
-            fragile: { chance: 20 }, // Хрупкая платформа (было 25, изначально 15)
-            slippery: { chance: 20 }, // Скользкая платформа (было 25, изначально 15)
-            vanishing: { chance: 15 },  // Исчезающая платформа (было 20)
-            sticky: { chance: 15 }  // Липкая платформа - новый тип
+            normal: { chance: 25 }, // Обычная платформа (было 25, увеличено)
+            fragile: { chance: 20 }, // Хрупкая платформа (было 20)
+            slippery: { chance: 20 }, // Скользкая платформа (было 20)
+            vanishing: { chance: 15 },  // Исчезающая платформа (было 15)
+            sticky: { chance: 15 }  // Липкая платформа (было 15)
         };
         
         // Счетчик для отслеживания времени игры
@@ -55,6 +56,7 @@ class GameScene extends Phaser.Scene {
         
         // Выбранный скин персонажа (по умолчанию тыква)
         this.selectedCharacter = 'pumpkin';
+        // this.movingPlatforms = null; // Инициализация удалена, так как группа удалена
     }
 
     init(data) {
@@ -98,13 +100,16 @@ class GameScene extends Phaser.Scene {
         // Параметры для масштабирования текстур платформ
         this.platformTextureScale = 0.25; // Уменьшаем масштаб текстур
         
+        // Типы движущихся платформ - УДАЛЕНО
+        
         // Разные типы платформ
         this.platformTypes = {
-            normal: { chance: 30 }, // Обычная платформа (было 50, изначально 60)
-            fragile: { chance: 20 }, // Хрупкая платформа (было 25, изначально 15)
-            slippery: { chance: 20 }, // Скользкая платформа (было 25, изначально 15)
-            vanishing: { chance: 15 },  // Исчезающая платформа (было 20)
-            sticky: { chance: 15 }  // Липкая платформа - новый тип
+            normal: { chance: 50 }, // Обычная платформа (было 25, увеличено)
+            fragile: { chance: 15 }, // Хрупкая платформа (было 20)
+            slippery: { chance: 15 }, // Скользкая платформа (было 20)
+            vanishing: { chance: 10 },  // Исчезающая платформа (было 15)
+            sticky: { chance: 10 }  // Липкая платформа (было 15)
+            // moving: { chance: 25 }   // Движущиеся платформы - УДАЛЕНО
         };
         
         // Мобильное управление
@@ -114,6 +119,9 @@ class GameScene extends Phaser.Scene {
         
         // Счетчик для отслеживания времени игры
         this.gameTime = 0;
+        
+        // Группа для движущихся платформ - УДАЛЕНО
+        // this.movingPlatforms = null;
     }
 
     preload() {
@@ -165,6 +173,7 @@ class GameScene extends Phaser.Scene {
         this.slipperyPlatforms = this.physics.add.staticGroup();
         this.vanishingPlatforms = this.physics.add.staticGroup();
         this.stickyPlatforms = this.physics.add.staticGroup();
+        // this.movingPlatforms = this.physics.add.group(); // Движущиеся платформы (динамическая группа) - УДАЛЕНО
         
         // Объединенная группа всех платформ для коллизий
         this.allPlatforms = [
@@ -173,6 +182,7 @@ class GameScene extends Phaser.Scene {
             this.slipperyPlatforms,
             this.vanishingPlatforms,
             this.stickyPlatforms
+            // this.movingPlatforms - УДАЛЕНО
         ];
         
         // Создание начальной платформы
@@ -243,14 +253,6 @@ class GameScene extends Phaser.Scene {
         // Игрок ДОЛЖЕН сталкиваться с границами мира, особенно с нижней
         this.player.body.collideWorldBounds = true;
         
-        // Создаем невидимые стены по бокам для предотвращения выхода игрока за боковые границы
-        this.walls = this.physics.add.staticGroup();
-        this.walls.create(5, 300, 'ground').setScale(0.1, 100).refreshBody();    // Левая стена
-        this.walls.create(795, 300, 'ground').setScale(0.1, 100).refreshBody();  // Правая стена
-        
-        // Коллизия с боковыми стенами
-        this.physics.add.collider(this.player, this.walls);
-        
         // Настройка коллизий
         this.setupCollisions();
         
@@ -285,6 +287,12 @@ class GameScene extends Phaser.Scene {
         // Создание индикаторов способностей
         this.playerAbilities.createAbilityIndicators();
 
+        // Настройка звуков для PlayerAbilities
+        this.playerAbilities.sounds = {
+            jump: this.jumpSound,
+            doubleJump: this.doubleJumpSound
+        };
+
         // Добавляю функцию для вызова паузы в существующий класс GameScene
         this.input.keyboard.on('keydown-ESC', () => {
             this.scene.pause();
@@ -311,10 +319,23 @@ class GameScene extends Phaser.Scene {
     }
 
     setupCollisions() {
-        // Настройка коллизий для всех типов платформ
-        this.allPlatforms.forEach(group => {
-            this.physics.add.collider(this.player, group, this.playerHitPlatform, null, this);
-        });
+        // Настраиваем столкновения с обычными платформами
+        const playerVsPlatforms = this.physics.add.collider(this.player, this.platforms, this.playerHitPlatform, null, this);
+        
+        // Настраиваем столкновения с хрупкими платформами
+        const playerVsFragilePlatforms = this.physics.add.collider(this.player, this.fragilePlatforms, this.playerHitPlatform, null, this);
+        
+        // Настраиваем столкновения со скользкими платформами
+        const playerVsSlipperyPlatforms = this.physics.add.collider(this.player, this.slipperyPlatforms, this.playerHitPlatform, null, this);
+        
+        // Настраиваем столкновения с исчезающими платформами
+        const playerVsVanishingPlatforms = this.physics.add.collider(this.player, this.vanishingPlatforms, this.playerHitPlatform, null, this);
+        
+        // Настраиваем столкновения с липкими платформами
+        const playerVsStickyPlatforms = this.physics.add.collider(this.player, this.stickyPlatforms, this.playerHitPlatform, null, this);
+        
+        // Настраиваем столкновения с движущимися платформами - УДАЛЕНО
+        // const playerVsMovingPlatforms = this.physics.add.collider(this.player, this.movingPlatforms, this.playerHitPlatform, null, this);
     }
 
     setupCamera() {
@@ -329,6 +350,12 @@ class GameScene extends Phaser.Scene {
         // Настраиваем параметры для оптимизации генерации платформ
         this.lastPlatformCheckpoint = 0; // Контрольная точка для проверки генерации платформ
         this.lastCleanupCheckpoint = 0; // Контрольная точка для очистки старых платформ
+        
+        this.player.onPlatform = false;
+        // this.player.onMovingPlatform = false; // Удалено
+        
+        // Базовое управление
+        this.playerMovement();
     }
 
     update(time, delta) {
@@ -354,6 +381,20 @@ class GameScene extends Phaser.Scene {
         // Устанавливаем текущую высоту как счет
         this.score = this.maxHeightReached;
         this.scoreText.setText('Высота: ' + this.score);
+        
+        // Обрабатываем нажатия клавиш для управления персонажем
+        // Обработка нажатий клавиш влево/вправо для ПК
+        if (this.cursors.left.isDown) {
+            this.leftPressed = true;
+            this.rightPressed = false;
+        } else if (this.cursors.right.isDown) {
+            this.rightPressed = true;
+            this.leftPressed = false;
+        } else {
+            // Если ни одна из клавиш не нажата, сбрасываем оба флага
+            this.leftPressed = false;
+            this.rightPressed = false;
+        }
         
         // Обрабатываем нажатия клавиш для прыжка
         if (this.spaceKey && this.spaceKey.isDown) {
@@ -436,6 +477,11 @@ class GameScene extends Phaser.Scene {
             });
         }
         
+        // Сбрасываем флаги платформы в начале каждого фрейма
+        this.player.onPlatform = false;
+        // this.player.onMovingPlatform = false; // Удалено
+        this.player.currentPlatform = null;
+        
         // Базовое управление
         this.playerMovement();
         
@@ -445,196 +491,175 @@ class GameScene extends Phaser.Scene {
         // Обновление индикаторов способностей
         this.playerAbilities.updateAbilityIndicators();
         
-        // Обновляем позицию боковых стен каждый кадр, чтобы они следовали за камерой
-        this.walls.getChildren().forEach(wall => {
-            wall.y = this.cameras.main.scrollY + 300;
-        });
+        // Проверяем, стоит ли игрок на земле
+        const onGround = this.player.body.touching.down;
+        
+        // Если игрок не стоит на земле, сбрасываем флаги платформ
+        if (!onGround) {
+            this.player.onPlatform = false;
+            // this.player.onMovingPlatform = false; // Удалено
+            this.player.currentPlatform = null;
+        }
     }
 
     playerHitPlatform(player, platform) {
-        // Если игрок приземлился на платформу (касание снизу игрока)
-        if (player.body.touching.down) {
-            // Проверяем направление движения для правильной анимации
-            if (player.body.velocity.x < 0) {
-                // Движение влево
-                player.setFlipX(false);
-                player.animationState.setAnimation(0, 'idle', true);
-                player.animationState.timeScale = 0.5;
-            } else if (player.body.velocity.x > 0) {
-                // Движение вправо
-                player.setFlipX(true);
-                player.animationState.setAnimation(0, 'idle', true);
-                player.animationState.timeScale = 0.5;
-            } else {
-                // Стоит на месте
-                player.animationState.setAnimation(0, 'still', true);
-            }
-            
-            // Звук приземления на платформу
-            if (this.platformSound) {
-                this.platformSound.play({
-                    volume: 0.3,
-                    rate: 0.8 + Math.random() * 0.4
-                });
-            }
-            
-            // Сброс флага прыжка
-            this.isJumping = false;
-            this.canJump = true;
-            
-            // Проверяем тип платформы
-            const platformType = platform.type;
-            
-            // Скользкая платформа
-            if (platformType === 'slippery') {
-                this.isSlipping = true;
-                const slipDirection = player.body.velocity.x > 0 ? 1 : -1;
-                
-                // Немного слабее, но заметнее
-                const slipVelocity = 90 * slipDirection;
-                
-                // Меняем скорость горизонтального движения вместо вектора
-                player.body.velocity.x = slipVelocity;
-                
-                // Создаем частицы скольжения
-                const slipParticles = this.add.particles(player.x, player.y + player.height / 2, 'particle', {
-                    lifespan: 300,
-                    speed: { min: 10, max: 30 },
-                    scale: { start: 0.3, end: 0.1 },
-                    quantity: 2,
-                    emitting: true,
-                    frequency: 20,
-                    tint: 0x4de9e7
-                });
-                
-                // Следуем за игроком
-                slipParticles.setDepth(50); // Устанавливаем depth выше платформ
-                slipParticles.startFollow(player);
-                
-                // Удаляем эффект через некоторое время
-                this.time.delayedCall(700, () => {
-                    slipParticles.destroy();
-                });
-            } else {
-                this.isSlipping = false;
-            }
-            
-            // Липкая платформа
-            if (platformType === 'sticky') {
-                player.onStickyPlatform = true;
-                
-                // Временно снижаем силу прыжка
-                if (!player.originalJumpStrength) {
-                    player.originalJumpStrength = player.jumpStrength;
-                }
-                
-                // Снижаем силу первого прыжка на 30%
-                player.jumpStrength = player.originalJumpStrength * 0.7;
-                
-                // Визуальный эффект "прилипания"
-                const stickyEffect = this.add.particles(player.x, player.y + player.height / 2, 'particle', {
-                    lifespan: 300,
-                    speed: { min: 5, max: 20 },
-                    scale: { start: 0.3, end: 0.1 },
-                    quantity: 1,
-                    emitting: true,
-                    frequency: 50,
-                    tint: 0xd4d100
-                });
-                
-                // Следуем за игроком
-                stickyEffect.setDepth(50); // Устанавливаем depth выше платформ
-                stickyEffect.startFollow(player);
-                
-                // Удаляем эффект через некоторое время
-                this.time.delayedCall(700, () => {
-                    stickyEffect.destroy();
-                });
-            }
-        } else {
-            // Для обычных платформ сбрасываем флаг скольжения, если он был установлен
-            this.isSlipping = false;
-            
-            // Если игрок был на липкой платформе, восстанавливаем силу прыжка
-            if (player.onStickyPlatform && player.originalJumpStrength) {
-                player.jumpStrength = player.originalJumpStrength;
-                player.onStickyPlatform = false;
-            }
-        }
-        
-        // Сбрасываем доступность двойного прыжка при касании любой платформы
-        if (this.playerAbilities && player.body.touching.down) {
-            // Если двойной прыжок на перезарядке, не сбрасываем таймер
-            if (!this.playerAbilities.abilities.doubleJump.available &&
-                Date.now() - this.playerAbilities.abilities.doubleJump.lastUsed < this.playerAbilities.abilities.doubleJump.cooldown) {
-                // Перезарядка в процессе, не восстанавливаем
-            } else {
-                // Восстанавливаем доступность двойного прыжка
-                this.playerAbilities.abilities.doubleJump.available = true;
-                
-                // Обновляем UI индикатор
-                this.playerAbilities.updateAbilityIndicators();
-            }
-        }
+        // Проверяем, что оба объекта активны
+        if (!platform.active || !player.active) return;
 
-        // Если платформа хрупкая
-        if (platform.type === 'fragile') {
-            // Если игрок стоит на хрупкой платформе, запускаем таймер разрушения
-            if (!platform.isBreaking && player.body.touching.down) {
-                platform.isBreaking = true;
-                
-                // Добавляем визуальный эффект
-                if (platform.container) {
-                    platform.container.list.forEach(part => {
-                        part.setTint(0xff8888);
-                    });
-                }
-                
-                // Запускаем таймер разрушения
-                this.time.delayedCall(1500, () => {
-                    platform.body.enable = false;
-                    
-                    // Анимация разрушения
-                    this.tweens.add({
-                        targets: platform.container || platform,
-                        alpha: 0,
-                        y: platform.y + 20,
-                        duration: 300,
-                        onComplete: () => {
-                            platform.destroy();
-                        }
-                    });
-                });
-            }
-        }
+        // Проверяем, что игрок находится над платформой
+        const playerBottom = player.body.y + player.body.height;
+        const platformTop = platform.body.y;
+        const isLanding = playerBottom <= platformTop + 10 && player.body.velocity.y > 0;
         
-        // Исчезающие платформы
-        if (platform.type === 'vanishing' && player.body.touching.down) {
-            if (!platform.isVanishing) {
-                platform.isVanishing = true;
+        // Высчитываем, стоит ли персонаж на платформе
+        const isStandingOn = player.body.touching.down && platform.body.touching.up;
+        
+        // Установка флагов для всех типов платформ
+        if (isStandingOn) {
+            player.onPlatform = true;
+            player.currentPlatform = platform;
+            
+            // Дополнительно проверяем, является ли платформа движущейся - УДАЛЕНО
+            // if (platform.movementType) {
+            //     player.onMovingPlatform = true;
+            // }
+
+            // Очки начисляются только если это первое приземление на эту платформу
+            if (isLanding && !platform.wasJumpedOn) {
+                platform.wasJumpedOn = true;
                 
-                // Мигание перед исчезновением
-                this.tweens.add({
-                    targets: platform.container || platform,
-                    alpha: 0.2,
-                    yoyo: true,
-                    repeat: 3,
-                    duration: 150,
-                    onComplete: () => {
-                        // После мигания исчезаем
-                        this.tweens.add({
-                            targets: platform.container || platform,
-                            alpha: 0,
-                            duration: 200,
-                            onStart: () => {
-                                platform.body.enable = false;
-                            },
-                            onComplete: () => {
-                                platform.destroy();
+                // Определяем стоимость прыжка на платформу в зависимости от типа
+                let scoreValue = 5; // Базовая стоимость для обычной платформы
+                
+                // Увеличиваем стоимость платформы в зависимости от типа
+                if (platform.type === 'fragile') {
+                    scoreValue = 10; // Хрупкая платформа дает больше очков
+                } else if (platform.type === 'slippery') {
+                    scoreValue = 15; // Скользкая платформа дает еще больше очков
+                } else if (platform.type === 'vanishing') {
+                    scoreValue = 20; // Исчезающая платформа дает много очков
+                } else if (platform.type === 'sticky') {
+                    scoreValue = 10; // Липкая платформа
+                } 
+                // else if (platform.type === 'moving') { // Удалено
+                //     scoreValue = 15; // Движущаяся платформа
+                // }
+                
+                // Начисляем очки
+                this.score += scoreValue;
+                
+                // Воспроизводим звук приземления на платформу
+                if (this.sounds && this.sounds.platform) {
+                    this.sounds.platform.play();
+                }
+            }
+            
+            // Обрабатываем специальное поведение платформ при приземлении на них
+            switch (platform.type) {
+                case 'fragile':
+                    // Добавляем таймер для хрупкой платформы - она ломается через небольшой промежуток времени
+                    if (!platform.breaking) {
+                        platform.breaking = true;
+                        const breakTimer = this.time.delayedCall(300, () => {
+                            // Эффект разрушения платформы
+                            if (platform.active && platform.container) {
+                                // Анимируем разрушение
+                                this.tweens.add({
+                                    targets: platform.container,
+                                    alpha: 0,
+                                    y: platform.container.y + 20,
+                                    duration: 300,
+                                    ease: 'Power2',
+                                    onComplete: () => {
+                                        platform.destroy();
+                                    }
+                                });
                             }
                         });
                     }
-                });
+                    break;
+                
+                case 'slippery':
+                    // На скользкой платформе игрок скользит в направлении движения
+                    // Устанавливаем флаг скользкой платформы
+                    player.isOnSlipperyPlatform = true;
+                    
+                    // Если игрок активно двигается, увеличиваем скорость
+                    if (this.leftPressed) {
+                        player.body.velocity.x = -200; // Увеличенная скорость влево
+                    } else if (this.rightPressed) {
+                        player.body.velocity.x = 200; // Увеличенная скорость вправо
+                    } else {
+                        // Если клавиши не нажаты, сохраняем скольжение в текущем направлении
+                        // Уменьшаем замедление - скольжение дольше
+                        if (Math.abs(player.body.velocity.x) > 10) {
+                            player.body.velocity.x *= 0.99; // Очень медленное трение
+                        } else {
+                            // Если скорость очень мала, добавляем случайное скольжение
+                            player.body.velocity.x = (Math.random() < 0.5 ? -1 : 1) * 40;
+                        }
+                    }
+                    break;
+                    
+                case 'vanishing':
+                    // Исчезающая платформа - исчезает сразу после отпрыгивания
+                    if (!platform.vanishing) {
+                        platform.vanishing = true;
+                        
+                        // Мигаем платформой перед исчезновением
+                        const blinkTween = this.tweens.add({
+                            targets: platform.container,
+                            alpha: 0.2,
+                            yoyo: true,
+                            repeat: 2,
+                            duration: 100,
+                            onComplete: () => {
+                                // Исчезаем и удаляем
+                                this.tweens.add({
+                                    targets: platform.container,
+                                    alpha: 0,
+                                    duration: 150,
+                                    onComplete: () => {
+                                        platform.destroy();
+                                    }
+                                });
+                            }
+                        });
+                    }
+                    break;
+                    
+                case 'sticky':
+                    // Липкая платформа - замедляет горизонтальное движение игрока
+                    player.body.velocity.x *= 0.85; // Сильное замедление движения
+                    
+                    // Также замедляет начальную скорость следующего прыжка
+                    if (!player.isOnStickyPlatform) {
+                        player.isOnStickyPlatform = true;
+                        
+                        // Визуальный эффект "прилипания"
+                        this.tweens.add({
+                            targets: player,
+                            y: player.y - 5,
+                            duration: 100,
+                            yoyo: true,
+                            ease: 'Sine.easeOut'
+                        });
+                    }
+                    break;
+                    
+                default:
+                    // Обычная платформа
+                    // Сбрасываем флаг скользкой платформы
+                    player.isOnSlipperyPlatform = false;
+                    break;
+            }
+        } else {
+            // Если игрок не стоит на платформе, сбрасываем флаги
+            if (platform.type === 'sticky') {
+                player.isOnStickyPlatform = false;
+            }
+            if (platform.type === 'slippery') {
+                player.isOnSlipperyPlatform = false;
             }
         }
     }
@@ -729,104 +754,89 @@ class GameScene extends Phaser.Scene {
     }
 
     playerMovement() {
-        // Проверяем, находится ли игрок на земле
-        const onGround = this.player.body.touching.down;
+        // Проверяем, что игрок существует
+        if (!this.player || !this.player.body) return;
+        
+        // Устанавливаем базовую скорость игрока
+        const moveSpeed = 200;
+        
+        // Флаг для определения, двигается ли игрок
         let isMoving = false;
         
-        // Движение влево-вправо через клавиатуру или мобильное управление
-        if (this.cursors.left.isDown || this.leftPressed) {
-            // Учитываем множитель скорости от бонуса
-            const speedMultiplier = this.player.speedMultiplier || 1;
-            const targetVelocity = -160 * speedMultiplier;
-            
-            // Применяем плавное ускорение вместо резкого изменения скорости
-            const currentVelocity = this.player.body.velocity.x;
-            const acceleration = 15 * speedMultiplier; // Скорость изменения
-            
-            // Постепенно приближаем скорость к целевой
-            if (currentVelocity > targetVelocity) {
-                this.player.body.setVelocityX(Math.max(targetVelocity, currentVelocity - acceleration));
-            }
-            
-            // Проигрываем анимацию движения влево и отражаем спрайт
-            // Поворачиваем персонажа влево, даже если он в воздухе
+        // Имитация трения/замедления, когда клавиши не нажаты
+        const slowdownFactor = 0.9;
+        
+        // Проверяем нажатие клавиш и устанавливаем скорость
+        if (this.leftPressed) {
+            this.player.body.velocity.x = -moveSpeed;
             this.player.setFlipX(false);
-            if (onGround) {
-                if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'idle') {
-                    this.player.animationState.setAnimation(0, 'idle', true);
-                    this.player.animationState.timeScale = 0.5;
-                }
-            }
             isMoving = true;
-        } else if (this.cursors.right.isDown || this.rightPressed) {
-            // Учитываем множитель скорости от бонуса
-            const speedMultiplier = this.player.speedMultiplier || 1;
-            const targetVelocity = 160 * speedMultiplier;
-            
-            // Применяем плавное ускорение вместо резкого изменения скорости
-            const currentVelocity = this.player.body.velocity.x;
-            const acceleration = 15 * speedMultiplier; // Скорость изменения
-            
-            // Постепенно приближаем скорость к целевой
-            if (currentVelocity < targetVelocity) {
-                this.player.body.setVelocityX(Math.min(targetVelocity, currentVelocity + acceleration));
-            }
-            
-            // Проигрываем анимацию движения вправо и не отражаем спрайт
-            // Поворачиваем персонажа вправо, даже если он в воздухе
+        } else if (this.rightPressed) {
+            this.player.body.velocity.x = moveSpeed;
             this.player.setFlipX(true);
-            if (onGround) {
-                if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'idle') {
-                    this.player.animationState.setAnimation(0, 'idle', true);
-                    this.player.animationState.timeScale = 0.5;
-                }
-            }
             isMoving = true;
         } else {
-            // Если игрок на скользкой платформе, не останавливаем его полностью
-            if (this.player.body.friction && this.player.body.friction.x < 0.2) {
-                this.player.body.setVelocityX(this.player.body.velocity.x * 0.95);
-                isMoving = Math.abs(this.player.body.velocity.x) > 20;
-            } else {
-                // Плавное замедление вместо резкой остановки
-                const currentVelocity = this.player.body.velocity.x;
-                const deceleration = 10; // Скорость замедления
+            // Плавное замедление, когда клавиши не нажаты
+            this.player.body.velocity.x *= slowdownFactor;
+            
+            // Остановка, если скорость достаточно низкая
+            if (Math.abs(this.player.body.velocity.x) < 10) {
+                this.player.body.velocity.x = 0;
+            }
+        }
+        
+        // Проверяем нажатие клавиши прыжка
+        if (this.jumpPressed) {
+            const now = Date.now();
+            
+            // Проверяем, прошло ли достаточно времени с предыдущего прыжка
+            if (now - this.lastJumpTime > this.jumpCooldown) {
+                // Используем обработчик прыжка из PlayerAbilities для поддержки двойного прыжка
+                const jumpPerformed = this.playerAbilities.handleJump();
                 
-                if (Math.abs(currentVelocity) < deceleration) {
-                    this.player.body.setVelocityX(0);
-                    isMoving = false;
-                } else if (currentVelocity > 0) {
-                    this.player.body.setVelocityX(currentVelocity - deceleration);
-                    isMoving = true;
-                } else {
-                    this.player.body.setVelocityX(currentVelocity + deceleration);
-                    isMoving = true;
+                if (jumpPerformed) {
+                    this.lastJumpTime = now;
+                    
+                    // Воспроизводим звук прыжка
+                    if (this.sounds && this.sounds.jump) {
+                        this.sounds.jump.play({ volume: 0.5 });
+                    }
+                    
+                    // Создаем эффект пыли при прыжке
+                    this.createJumpDustEffect();
+                    
+                    // Если игрок на липкой платформе, прыгаем ниже
+                    if (this.player.isOnStickyPlatform) {
+                        this.player.body.velocity.y *= 0.8;
+                        this.player.isOnStickyPlatform = false;
+                    }
+                    
+                    // Если игрок на движущейся платформе, добавляем импульс в зависимости от типа движения платформы - УДАЛЕНО
+                    // if (this.player.onMovingPlatform && this.player.currentPlatform) {
+                    //     if (this.player.currentPlatform.movementType === 'horizontal') {
+                    //         // Добавляем горизонтальный импульс в направлении движения платформы
+                    //         this.player.body.velocity.x += this.player.currentPlatform.moveSpeed * 
+                    //                                        this.player.currentPlatform.moveDirection * 4;
+                    //     } else if (this.player.currentPlatform.movementType === 'vertical') {
+                    //         // Для платформы, движущейся вверх, увеличиваем высоту прыжка
+                    //         if (this.player.currentPlatform.moveDirection < 0) {
+                    //             this.player.body.velocity.y *= 1.2;
+                    //         }
+                    //     }
+                        
+                    //     // Сбрасываем флаги
+                    //     this.player.onMovingPlatform = false;
+                    //     this.player.currentPlatform = null;
+                    // }
                 }
             }
             
-            // Если игрок на земле и не двигается, проигрываем анимацию бездействия
-            if (onGround && !isMoving && this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'still') {
-                this.player.animationState.setAnimation(0, 'still', true);
-            }
+            // Сбрасываем флаг, чтобы прыжок не повторялся непрерывно
+            this.jumpPressed = false;
         }
         
-        // Обработка прыжка с мгновенной реакцией
-        const currentTime = Date.now();
-        if (this.jumpPressed) {
-            if (currentTime > this.lastJumpTime + this.jumpCooldown) {
-                // Сразу пытаемся выполнить прыжок
-                if (this.playerAbilities.handleJump()) {
-                    this.lastJumpTime = currentTime;
-                    
-                    // Для Spine используем анимацию idle для прыжка
-                    this.player.animationState.setAnimation(0, 'idle', true);
-                    this.player.animationState.timeScale = 0.3;
-                }
-            }
-        }
-        
-        // Обновляем анимации в зависимости от состояния
-        this.updatePlayerAnimation(onGround, isMoving);
+        // Обновляем анимацию в зависимости от того, движется ли игрок и на земле ли он
+        this.updatePlayerAnimation(this.player.body.touching.down, isMoving);
     }
     
     updatePlayerAnimation(onGround, isMoving) {
@@ -855,16 +865,16 @@ class GameScene extends Phaser.Scene {
             if (this.player.body.velocity.x < 0) {
                 this.player.setFlipX(false);
                 
-                if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'idle') {
-                    this.player.animationState.setAnimation(0, 'idle', true);
+                if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'still') {
+                    this.player.animationState.setAnimation(0, 'still', true);
                     this.player.animationState.timeScale = 0.5;
                 }
             } 
             else if (this.player.body.velocity.x > 0) {
                 this.player.setFlipX(true);
                 
-                if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'idle') {
-                    this.player.animationState.setAnimation(0, 'idle', true);
+                if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'still') {
+                    this.player.animationState.setAnimation(0, 'still', true);
                     this.player.animationState.timeScale = 0.5;
                 }
             }
@@ -1003,7 +1013,10 @@ class GameScene extends Phaser.Scene {
                                     platformType = 'vanishing';
                                 } else if (typeRoll < 0.6 && this.score > 400) {
                                     platformType = 'sticky';
-                                }
+                                } 
+                                // else if (typeRoll < 0.8 && this.score > 300) { // Удалено
+                                //     platformType = 'moving';
+                                // }
                             }
                             
                             // Упрощаем логику гарантированной нормальной платформы
@@ -1112,7 +1125,7 @@ class GameScene extends Phaser.Scene {
         }
         
         // Определяем текстуры для частей платформы
-        const textureKey = `platform_${type}`;
+        let textureKey = `platform_${type}`;
         const leftTexture = this.textures.get(`${textureKey}_left`);
         const midTexture = this.textures.get(`${textureKey}_mid`);
         const rightTexture = this.textures.get(`${textureKey}_right`);
@@ -1142,6 +1155,9 @@ class GameScene extends Phaser.Scene {
         platform.setScale(scaledWidth / platform.width, scaledHeight / platform.height);
         platform.refreshBody();
         platform.type = type; // Устанавливаем тип для проверки в коллизиях
+        
+        // Код для движущихся платформ - УДАЛЕН БЛОК
+        // if (type === 'moving') { ... } 
         
         // Создаем визуальные части платформы
         // Левая часть
@@ -1249,5 +1265,41 @@ class GameScene extends Phaser.Scene {
                 }
             });
         });
+    }
+
+    // Метод для обновления движущихся платформ - УДАЛЕН МЕТОД
+    // updateMovingPlatforms(delta) { ... }
+    
+    // Создание эффекта пыли при прыжке
+    createJumpDustEffect() {
+        // Проверяем, что игрок существует
+        if (!this.player) return;
+        
+        // Создаем простой эффект пыли под игроком без использования частиц
+        const dustCount = 10; // Количество частиц пыли
+        
+        for (let i = 0; i < dustCount; i++) {
+            // Расположение частицы пыли под ногами игрока, со случайным смещением
+            const x = this.player.x + Phaser.Math.Between(-20, 20);
+            const y = this.player.y + 30 + Phaser.Math.Between(-5, 5);
+            
+            // Создаем круг как визуальное представление частицы пыли
+            const dust = this.add.circle(x, y, Phaser.Math.Between(2, 4), 0xcccccc, 0.7);
+            dust.setDepth(90);
+            
+            // Анимируем движение и исчезновение частицы
+            this.tweens.add({
+                targets: dust,
+                x: x + Phaser.Math.Between(-30, 30),
+                y: y + Phaser.Math.Between(10, 25),
+                alpha: 0,
+                scale: { from: 1, to: 0.5 },
+                duration: Phaser.Math.Between(200, 400),
+                ease: 'Power2',
+                onComplete: () => {
+                    dust.destroy();
+                }
+            });
+        }
     }
 } 

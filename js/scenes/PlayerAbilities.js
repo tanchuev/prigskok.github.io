@@ -30,6 +30,11 @@ class PlayerAbilities {
                         this.abilities.doubleJump.available = false;
                         this.abilities.doubleJump.lastUsed = Date.now();
                         
+                        // Воспроизводим звук двойного прыжка
+                        if (this.sounds && this.sounds.doubleJump) {
+                            this.sounds.doubleJump.play({ volume: 0.6 });
+                        }
+                        
                         // Визуальный эффект
                         this.createJumpEffect();
                         
