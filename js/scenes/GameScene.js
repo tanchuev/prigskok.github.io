@@ -11,6 +11,9 @@ class GameScene extends Phaser.Scene {
         this.lastJumpTime = 0;
         this.jumpCooldown = 400;
         
+        // Добавляем переменную для отслеживания последнего направления движения
+        this.lastDirection = 1; // 1 = вправо, -1 = влево
+        
         // Высота, на которую поднялся игрок (счет)
         this.score = 0;
         this.highestScore = 0;
@@ -72,6 +75,9 @@ class GameScene extends Phaser.Scene {
         
         // Минимальный процент "надежных" (не хрупких и не исчезающих) платформ для гарантии проходимости
         this.minSafePlatformsPercent = 30;
+        
+        // Добавляем коэффициент замедления для липкой платформы
+        this.stickySlowdownFactor = 0.2;
     }
 
     init(data) {
@@ -577,17 +583,30 @@ class GameScene extends Phaser.Scene {
                 case 'slippery':
                     player.isOnSlipperyPlatform = true;
                     
+                    const currentVelocity = player.body.velocity.x * 1.25;
+                    let targetVelocity = currentVelocity;
+                    
                     if (this.leftPressed) {
-                        player.body.velocity.x = -350;
+                        targetVelocity = targetVelocity * 1.00005;
+                        this.lastDirection = -1; 
                     } else if (this.rightPressed) {
-                        player.body.velocity.x = 350;
+                        targetVelocity = targetVelocity * 1.00005;
+                        this.lastDirection = 1; 
                     } else {
-                        if (Math.abs(player.body.velocity.x) > 10) {
-                            player.body.velocity.x *= 0.995;
+                        // Сохраняем инерцию с минимальным трением
+                        if (Math.abs(currentVelocity) > 10) {
+                            // Мягкое замедление, очень малое трение для плавного скольжения
+                            targetVelocity = currentVelocity * 1.2; 
+                            // Сохраняем направление движения
+                            this.lastDirection = currentVelocity > 0 ? 1 : -1;
                         } else {
-                            player.body.velocity.x = (Math.random() < 0.5 ? -1 : 1) * 80;
+                            // Если скорость совсем низкая, добавляем небольшое скольжение в последнем направлении
+                            targetVelocity = this.lastDirection * 540;
                         }
                     }
+                    
+                    // Плавная интерполяция к целевой скорости
+                    player.body.velocity.x = Phaser.Math.Linear(currentVelocity, targetVelocity, 0.3);
                     break;
                     
                 case 'vanishing':
@@ -615,10 +634,11 @@ class GameScene extends Phaser.Scene {
                     break;
                     
                 case 'sticky':
-                    player.body.velocity.x *= 0.85;
+                    // Устанавливаем флаг, что игрок на липкой платформе
+                    player.isOnStickyPlatform = true;
                     
-                    if (!player.isOnStickyPlatform) {
-                        player.isOnStickyPlatform = true;
+                    if (!player.stuckOnPlatform) {
+                        player.stuckOnPlatform = true;
                         
                         this.tweens.add({
                             targets: player,
@@ -627,6 +647,9 @@ class GameScene extends Phaser.Scene {
                             yoyo: true,
                             ease: 'Sine.easeOut'
                         });
+                        
+                        // Значительно снижаем текущую скорость
+                        player.body.velocity.x *= 0.1;
                     }
                     break;
                     
@@ -645,6 +668,7 @@ class GameScene extends Phaser.Scene {
         } else {
             if (platform.type === 'sticky') {
                 player.isOnStickyPlatform = false;
+                player.stuckOnPlatform = false;
             }
             if (platform.type === 'slippery') {
                 player.isOnSlipperyPlatform = false;
@@ -743,18 +767,31 @@ class GameScene extends Phaser.Scene {
                                 this.player.currentPlatform && 
                                 this.player.currentPlatform.isMoving;
         
+        // Определяем базовую скорость с учетом типа платформы
+        let effectiveMoveSpeed = moveSpeed;
+        
+        // Если игрок на липкой платформе, уменьшаем базовую скорость движения
+        if (this.player.isOnStickyPlatform) {
+            effectiveMoveSpeed = moveSpeed * this.stickySlowdownFactor;
+        }
+        
         if (this.leftPressed) {
-            this.player.body.velocity.x = -moveSpeed;
+            this.player.body.velocity.x = -effectiveMoveSpeed;
             this.player.setFlipX(false);
             isMoving = true;
         } else if (this.rightPressed) {
-            this.player.body.velocity.x = moveSpeed;
+            this.player.body.velocity.x = effectiveMoveSpeed;
             this.player.setFlipX(true);
             isMoving = true;
         } else {
             // Если не на движущейся платформе, замедляем движение
             if (!onMovingPlatform) {
-                this.player.body.velocity.x *= slowdownFactor;
+                if (this.player.isOnStickyPlatform) {
+                    // На липкой платформе скорость быстрее стремится к нулю
+                    this.player.body.velocity.x *= 0.5;
+                } else {
+                    this.player.body.velocity.x *= slowdownFactor;
+                }
                 
                 if (Math.abs(this.player.body.velocity.x) < 10) {
                     this.player.body.velocity.x = 0;
@@ -778,8 +815,9 @@ class GameScene extends Phaser.Scene {
                     this.createJumpDustEffect();
                     
                     if (this.player.isOnStickyPlatform) {
-                        this.player.body.velocity.y *= 0.8;
+                        this.player.body.velocity.y *= 0.7;
                         this.player.isOnStickyPlatform = false;
+                        this.player.stuckOnPlatform = false;
                     }
                 }
             }
@@ -1045,7 +1083,7 @@ class GameScene extends Phaser.Scene {
                 const column = columns[columnIndex];
                 
                 // Случайная X-координата внутри выбранной колонки
-                const x = column.minX + Math.random() * (column.maxX - column.minX);
+                let x = column.minX + Math.random() * (column.maxX - column.minX);
                 
                 // Вычисляем ширину платформы
                 const width = getPlatformWidth(this.score);
