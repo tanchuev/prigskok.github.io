@@ -483,7 +483,7 @@ class GameScene extends Phaser.Scene {
         }
         
         this.score = this.maxHeightReached;
-        this.scoreText.setText('Высота: ' + this.score);
+        this.scoreText.setText('Предел твоих возможностей: ' + this.score);
         
         // Обновляем отображение рамки коллизий
         // this.drawDebugPlayerCollision();
@@ -610,7 +610,12 @@ class GameScene extends Phaser.Scene {
                 if (Math.abs(deltaX) > 0.001 && platform.movementDirection === 'horizontal') {
                     // Применяем скорость только если игрок не пытается двигаться самостоятельно
                     if (!this.leftPressed && !this.rightPressed) {
-                        this.player.body.velocity.x = (deltaX / delta) * 1000;
+                        if (platform.type === 'slippery') {
+                            // Для скользких платформ добавляем скорость к существующей скорости игрока
+                            this.player.body.velocity.x += (deltaX / delta) * 1000;
+                        } else {
+                            this.player.body.velocity.x = (deltaX / delta) * 1000;
+                        }
                     }
                 }
             }
@@ -785,8 +790,8 @@ class GameScene extends Phaser.Scene {
                             ease: 'Sine.easeOut'
                         });
                         
-                        // Значительно снижаем текущую скорость
-                        player.body.velocity.x *= 0.1;
+                        // Применяем коэффициент замедления вместо фиксированного значения
+                        player.body.velocity.x *= this.stickySlowdownFactor;
                     }
                     break;
                     
@@ -798,7 +803,7 @@ class GameScene extends Phaser.Scene {
             // Если платформа движется, обрабатываем это
             if (platform.isMoving) {
                 // Уменьшаем горизонтальное скольжение игрока на платформе
-                if (!this.leftPressed && !this.rightPressed) {
+                if (!this.leftPressed && !this.rightPressed && platform.type !== 'slippery') {
                     player.body.velocity.x = 0;
                 }
             }
@@ -814,14 +819,15 @@ class GameScene extends Phaser.Scene {
     }
 
     createUI() {
-        this.scoreText = this.add.text(16, 16, 'Высота: 0', { 
+        this.scoreText = this.add.text(16, 16, 'Предел твоих возможностей: 0', { 
             fontFamily: 'unutterable',
-            fontSize: '32px', 
+            fontSize: '20px', 
             fill: '#fff',
             stroke: '#000',
-            strokeThickness: 4
+            strokeThickness: 3
         });
         this.scoreText.setScrollFactor(0);
+        this.scoreText.setDepth(1000); // Устанавливаем высокое значение глубины, чтобы текст был поверх всех объектов
         
         if (this.sys.game.device.os.desktop) {
             const controlHint = this.add.text(16, 60, 
@@ -833,6 +839,7 @@ class GameScene extends Phaser.Scene {
                 strokeThickness: 2
             });
             controlHint.setScrollFactor(0);
+            controlHint.setDepth(1000); // Также устанавливаем высокую глубину для подсказки
             
             this.time.delayedCall(5000, () => {
                 controlHint.alpha = 0;
@@ -909,7 +916,16 @@ class GameScene extends Phaser.Scene {
         
         // Проверяем, не находимся ли мы на липкой платформе
         if (this.player.stuckOnPlatform) {
-            this.player.body.velocity.x = 0;
+            // Замедляем движение, но не останавливаем полностью
+            if (this.leftPressed) {
+                this.player.body.velocity.x = -this.moveSpeed * this.stickySlowdownFactor;
+                this.player.setFlipX(false);
+            } else if (this.rightPressed) {
+                this.player.body.velocity.x = this.moveSpeed * this.stickySlowdownFactor;
+                this.player.setFlipX(true);
+            } else {
+                this.player.body.velocity.x = 0;
+            }
         } else if (!this.player.knockbackActive) { // Добавляем проверку флага knockbackActive
             // Если игрок на скользкой платформе, не сбрасываем его скорость
             if (this.player.isOnSlipperyPlatform) {
@@ -946,10 +962,6 @@ class GameScene extends Phaser.Scene {
                 
                 if (jumpPerformed) {
                     this.lastJumpTime = now;
-                    
-                    if (this.sounds && this.sounds.jump) {
-                        this.sounds.jump.play({ volume: 0.5 });
-                    }
                     
                     this.createJumpDustEffect();
                     
@@ -1598,12 +1610,9 @@ class GameScene extends Phaser.Scene {
             // Начинаем с 0% на высоте 1000 и достигаем максимума 20% на высоте 10000
             const itemChance = this.score < 1000 ? 0 : Math.min(0.20, (this.score - 1000) / 45000);
             
-            // Временно добавляем предметы на каждую платформу
-            this.createItem(platform);
-            
-            // if (Math.random() < itemChance) {
-            //     this.createItem(platform);
-            // }
+            if (Math.random() < itemChance) {
+                this.createItem(platform);
+            }
         }
         
         // Переопределяем метод уничтожения для корректной очистки
@@ -1801,7 +1810,7 @@ class GameScene extends Phaser.Scene {
         this.jumpZoneDebugGraphics.strokeRect(playerX, playerBottom, playerWidth, 15);
         
         // Проверяем, нашлась ли платформа рядом
-        const platformNearby = this.playerAbilities.isPlatformNearby(15);
+        const platformNearby = this.playerAbilities.isPlatformNearby();
         
         // Если платформа найдена, меняем цвет прямоугольника
         if (platformNearby) {

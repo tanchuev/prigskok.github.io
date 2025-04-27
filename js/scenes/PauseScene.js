@@ -5,6 +5,9 @@ class PauseScene extends Phaser.Scene {
 
     init(data) {
         this.gameScene = data.gameScene;
+        
+        // Приостанавливаем музыку при входе в паузу
+        window.musicManager.togglePause();
     }
 
     create() {
@@ -68,11 +71,15 @@ class PauseScene extends Phaser.Scene {
         
         // Действия при нажатии
         continueButton.on('pointerdown', () => {
+            // Возобновляем музыку при выходе из паузы
+            window.musicManager.togglePause();
             this.scene.resume(this.gameScene);
             this.scene.stop();
         });
         
         menuButton.on('pointerdown', () => {
+            // Возобновляем музыку при возврате в главное меню
+            window.musicManager.togglePause();
             this.scene.stop(this.gameScene);
             this.scene.stop();
             this.scene.start('StartScene');
@@ -80,6 +87,8 @@ class PauseScene extends Phaser.Scene {
         
         // Возобновление игры при нажатии Esc
         this.input.keyboard.on('keydown-ESC', () => {
+            // Возобновляем музыку при выходе из паузы
+            window.musicManager.togglePause();
             this.scene.resume(this.gameScene);
             this.scene.stop();
         });

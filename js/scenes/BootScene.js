@@ -37,6 +37,9 @@ class BootScene extends Phaser.Scene {
         this.load.image('ground', 'https://labs.phaser.io/assets/sprites/platform.png');
         this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
         
+        // Загрузка фоновой музыки
+        this.load.audio('main_theme', 'assets/sounds/main_theme.mp3');
+        
         // Создаем текстуру для кнопки программно
         const buttonGraphics = this.make.graphics({ x: 0, y: 0, add: false });
         buttonGraphics.fillStyle(0x222222, 0.8);

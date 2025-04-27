@@ -3,6 +3,9 @@ class PlayerAbilities {
         this.scene = scene;
         this.player = player;
         
+        // Звуки
+        this.sounds = null;
+        
         // Базовые способности
         this.abilities = {
             // Пассивное усиление прыжка
@@ -37,6 +40,11 @@ class PlayerAbilities {
                         
                         // Визуальный эффект
                         this.createJumpEffect();
+                        
+                        // Отображаем сообщение об активации двойного прыжка
+                        if (this.scene.showTemporaryMessage) {
+                            this.scene.showTemporaryMessage('Двойной прыжок!', 0x0066cc);
+                        }
                         
                         // Перезарядка
                         this.scene.time.delayedCall(this.abilities.doubleJump.cooldown, () => {
@@ -82,7 +90,7 @@ class PlayerAbilities {
     }
     
     // Проверка наличия платформы в пределах указанного расстояния снизу от игрока
-    isPlatformNearby(distance = 15) {
+    isPlatformNearby(distance = 0) {
         if (!this.player || !this.player.body) return false;
         
         // Создаем временный объект для проверки перекрытия
@@ -136,16 +144,26 @@ class PlayerAbilities {
             const jumpVelocity = Math.round(this.player.jumpStrength);
             this.player.body.setVelocityY(jumpVelocity); // jumpStrength уже содержит отрицательное значение
             
+            // Воспроизводим звук прыжка
+            if (this.sounds && this.sounds.jump) {
+                this.sounds.jump.play({ volume: 0.8 });
+            }
+            
             // Визуальный эффект
             this.createJumpEffect();
             
             return true;
         }
-        // Проверяем, есть ли платформа в пределах 15 пикселей снизу
-        else if (this.isPlatformNearby(15)) {
+        // Проверяем, есть ли платформа в пределах 0(было 15) пикселей снизу
+        else if (this.isPlatformNearby()) {
             // Выполняем обычный прыжок, как будто игрок на земле
             const jumpVelocity = Math.round(this.player.jumpStrength);
             this.player.body.setVelocityY(jumpVelocity);
+            
+            // Воспроизводим звук прыжка
+            if (this.sounds && this.sounds.jump) {
+                this.sounds.jump.play({ volume: 0.8 });
+            }
             
             // Визуальный эффект
             this.createJumpEffect();

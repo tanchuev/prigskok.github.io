@@ -4,6 +4,10 @@ class StartScene extends Phaser.Scene {
     }
 
     create() {
+        // Инициализация и запуск фоновой музыки через менеджер
+        window.musicManager.init(this);
+        window.musicManager.playMusic('main_theme');
+        
         // Фон
         this.add.image(400, 300, 'background');
         
