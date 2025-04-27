@@ -136,6 +136,13 @@ class GameScene extends Phaser.Scene {
         this.rightPressed = false;
         this.jumpPressed = false;
         
+        // Сбрасываем флаг gameOver при перезапуске игры
+        this.gameOver = false;
+        // Убеждаемся, что физика активна
+        if (this.physics) {
+            this.physics.resume();
+        }
+        
         this.score = 0;
         
         this.lastPlatformY = 0;
@@ -271,7 +278,7 @@ class GameScene extends Phaser.Scene {
     }
 
     create() {
-        this.physics.world.setBounds(0, -95000, 800, 95800); // Изменяем верхнюю границу для соответствия границам камеры
+        this.physics.world.setBounds(0, -95000, 800, 96500); // Изменяем верхнюю границу для соответствия границам камеры
         this.physics.world.setBoundsCollision(true, true, false, true); // Отключаем коллизию только с верхней границей
 
         this.bg = this.add.tileSprite(400, 300, 800, 600, 'bg');
@@ -469,6 +476,38 @@ class GameScene extends Phaser.Scene {
         
         this.score = this.maxHeightReached;
         this.scoreText.setText('Предел твоих возможностей: ' + this.score);
+        
+        // Проверка на падение игрока
+        if (currentHeight < this.maxHeightReached - 600) {
+            if (!this.gameOver) {
+                this.gameOver = true;
+                this.player.skeleton.color.r = 1;
+                this.player.skeleton.color.g = 0.5;
+                this.player.skeleton.color.b = 0.5;
+                this.player.skeleton.color.a = 1;
+
+                this.player.animationState.setAnimation(0, 'die', false);
+
+                this.physics.pause();
+
+                this.time.delayedCall(1000, () => {
+                    this.scene.start('GameOverScene', { score: this.score });
+                });
+            }
+            return;
+        }
+        
+        // Удаление платформ, которые находятся ниже игрока на 500 единиц
+        this.allPlatforms.forEach(group => {
+            group.getChildren().forEach(platform => {
+                if (platform.y > this.player.y + 500) {
+                    if (platform.item) {
+                        platform.item.destroy();
+                    }
+                    platform.destroy();
+                }
+            });
+        });
         
         // Обновляем отображение рамки коллизий
         // this.drawDebugPlayerCollision();

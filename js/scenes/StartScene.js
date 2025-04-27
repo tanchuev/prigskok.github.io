@@ -23,10 +23,11 @@ class StartScene extends Phaser.Scene {
         title.setOrigin(0.5);
         
         // Кнопка начала игры
-        const startButton = this.add.text(400, 350, 'Начать игру', {
+        const startButton = this.add.text(400, 350, 'НАЧАТЬ ИГРУ', {
             fontFamily: 'unutterable',
-            fontSize: '36px',
+            fontSize: '32px',
             fill: '#ffffff',
+            backgroundColor: '#338833',
             stroke: '#000000',
             strokeThickness: 4,
             padding: {
@@ -39,15 +40,15 @@ class StartScene extends Phaser.Scene {
         
         // Анимация кнопки при наведении
         startButton.on('pointerover', () => {
-            startButton.setStyle({ fill: '#ff8800' });
+            startButton.setStyle({ fill: '#ffff00', backgroundColor: '#33aa33' });
         });
         startButton.on('pointerout', () => {
-            startButton.setStyle({ fill: '#ffffff' });
+            startButton.setStyle({ fill: '#ffffff', backgroundColor: '#338833' });
         });
         
         // Запуск игры при нажатии
         startButton.on('pointerdown', () => {
-            startButton.setStyle({ fill: '#ff0000' });
+            startButton.setStyle({ fill: '#ff8800' });
         });
         startButton.on('pointerup', () => {
             // Переход к экрану выбора персонажа вместо GameScene

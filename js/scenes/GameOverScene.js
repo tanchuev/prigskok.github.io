@@ -23,9 +23,9 @@ class GameOverScene extends Phaser.Scene {
         }).setOrigin(0.5);
         
         // Отображаем счет
-        this.add.text(400, 250, `Высота: ${this.score}`, {
+        this.add.text(400, 250, `Предел твоих возможностей: ${this.score}`, {
             fontFamily: 'unutterable',
-            fontSize: '48px',
+            fontSize: '32px',
             color: '#ffffff',
             align: 'center',
             stroke: '#000000',
@@ -33,10 +33,11 @@ class GameOverScene extends Phaser.Scene {
         }).setOrigin(0.5);
         
         // Кнопка "Играть снова"
-        const playAgainButton = this.add.text(400, 350, 'Играть снова', {
+        const playAgainButton = this.add.text(400, 350, 'Я МОГУ БОЛЬШЕ!', {
             fontFamily: 'unutterable',
-            fontSize: '32px',
+            fontSize: '24px',
             color: '#ffffff',
+            backgroundColor: '#338833',
             align: 'center',
             stroke: '#000000',
             strokeThickness: 4,
@@ -47,10 +48,11 @@ class GameOverScene extends Phaser.Scene {
         }).setOrigin(0.5).setInteractive();
         
         // Кнопка "Главное меню"
-        const menuButton = this.add.text(400, 430, 'Главное меню', {
+        const menuButton = this.add.text(400, 430, 'Я не могу больше :(', {
             fontFamily: 'unutterable',
-            fontSize: '32px',
+            fontSize: '24px',
             color: '#ffffff',
+            backgroundColor: '#666666',
             align: 'center',
             stroke: '#000000',
             strokeThickness: 4,
@@ -62,27 +64,29 @@ class GameOverScene extends Phaser.Scene {
         
         // Эффекты при наведении
         playAgainButton.on('pointerover', () => {
-            playAgainButton.setStyle({ color: '#ffff00' });
+            playAgainButton.setStyle({ color: '#ffff00', backgroundColor: '#33aa33' });
         });
         
         playAgainButton.on('pointerout', () => {
-            playAgainButton.setStyle({ color: '#ffffff' });
+            playAgainButton.setStyle({ color: '#ffffff', backgroundColor: '#338833' });
         });
         
         menuButton.on('pointerover', () => {
-            menuButton.setStyle({ color: '#ffff00' });
+            menuButton.setStyle({ color: '#ffff00', backgroundColor: '#888888' });
         });
         
         menuButton.on('pointerout', () => {
-            menuButton.setStyle({ color: '#ffffff' });
+            menuButton.setStyle({ color: '#ffffff', backgroundColor: '#666666' });
         });
         
         // Действия при нажатии
         playAgainButton.on('pointerdown', () => {
+            playAgainButton.setStyle({ color: '#ff8800' });
             this.scene.start('CharacterSelectScene');
         });
         
         menuButton.on('pointerdown', () => {
+            menuButton.setStyle({ color: '#ff8800' });
             this.scene.start('StartScene');
         });
     }
