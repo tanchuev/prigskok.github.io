@@ -490,8 +490,13 @@ class GameScene extends Phaser.Scene {
 
                 this.physics.pause();
 
-                this.time.delayedCall(1000, () => {
-                    this.scene.start('GameOverScene', { score: this.score });
+                // Слушаем завершение анимации смерти и только потом показываем экран Game Over
+                this.player.animationState.addListener({
+                    complete: (entry) => {
+                        if (entry.animation.name === 'die') {
+                            this.scene.start('GameOverScene', { score: this.score });
+                        }
+                    }
                 });
             }
             return;
@@ -569,8 +574,13 @@ class GameScene extends Phaser.Scene {
 
                 this.physics.pause();
 
-                this.time.delayedCall(1000, () => {
-                    this.scene.start('GameOverScene', { score: this.score });
+                // Слушаем завершение анимации смерти и только потом показываем экран Game Over
+                this.player.animationState.addListener({
+                    complete: (entry) => {
+                        if (entry.animation.name === 'die') {
+                            this.scene.start('GameOverScene', { score: this.score });
+                        }
+                    }
                 });
             }
             return;
@@ -1757,7 +1767,8 @@ class GameScene extends Phaser.Scene {
             itemChance += 0.05;
         }
         
-        if (Math.random() < itemChance) {
+        // Проверяем, что это не стартовая платформа (находящаяся на позиции Y=600)
+        if (y !== 600 && Math.random() < itemChance) {
             this.createItem(platform);
         }
         
