@@ -817,6 +817,86 @@ class GameScene extends Phaser.Scene {
             }
         }
     }
+    
+    // Активация эффекта платформы при прыжке рядом с ней (без коллизии)
+    activatePlatformEffectFromNearbyJump(player, platform) {
+        if (!platform.active || !player.active) return;
+        
+        // Помечаем платформу как использованную для начисления очков
+        if (!platform.wasJumpedOn) {
+            platform.wasJumpedOn = true;
+            
+            // Начисление очков за платформу
+            let scoreValue = 5;
+            
+            if (platform.type === 'fragile') {
+                scoreValue = 10;
+            } else if (platform.type === 'slippery') {
+                scoreValue = 15;
+            } else if (platform.type === 'vanishing') {
+                scoreValue = 20;
+            } else if (platform.type === 'sticky') {
+                scoreValue = 10;
+            }
+            
+            this.score += scoreValue;
+            
+            // Воспроизводим звук платформы
+            if (this.sounds && this.sounds.platform) {
+                this.sounds.platform.play();
+            }
+        }
+        
+        // Применяем эффект в зависимости от типа платформы
+        switch (platform.type) {
+            case 'fragile':
+                if (!platform.breaking) {
+                    platform.breaking = true;
+                    const breakTimer = this.time.delayedCall(300, () => {
+                        if (platform.active && platform.container) {
+                            this.tweens.add({
+                                targets: platform.container,
+                                alpha: 0,
+                                y: platform.container.y + 20,
+                                duration: 300,
+                                ease: 'Power2',
+                                onComplete: () => {
+                                    platform.destroy();
+                                }
+                            });
+                        }
+                    });
+                }
+                break;
+                
+            case 'vanishing':
+                if (!platform.vanishing) {
+                    platform.vanishing = true;
+                    
+                    const blinkTween = this.tweens.add({
+                        targets: platform.container,
+                        alpha: 0.2,
+                        yoyo: true,
+                        repeat: 2,
+                        duration: 100,
+                        onComplete: () => {
+                            this.tweens.add({
+                                targets: platform.container,
+                                alpha: 0,
+                                duration: 150,
+                                onComplete: () => {
+                                    platform.destroy();
+                                }
+                            });
+                        }
+                    });
+                }
+                break;
+                
+            // Другие типы платформ (slippery, sticky) не активируются,
+            // так как их эффекты имеют смысл только при физическом контакте
+        }
+    }
 
     createUI() {
         this.scoreText = this.add.text(16, 16, 'Предел твоих возможностей: 0', { 
@@ -1430,23 +1510,27 @@ class GameScene extends Phaser.Scene {
     }
 
     getPlatformType(heightInfluence) {
-        // Увеличиваем шанс специальных платформ с ростом высоты
-        const specialChance = 0.6 + (heightInfluence * 0.3);
+        // Увеличиваем шанс специальных платформ и снижаем порог их появления
+        const specialChance = 0.7 + (heightInfluence * 0.2);
         
         if (Math.random() < specialChance) {
             let specialTypes = [];
             
+            // Хрупкие платформы доступны сразу
             specialTypes.push('fragile', 'fragile');
             
-            if (heightInfluence > 0.1) {
+            // Скользкие платформы появляются раньше
+            if (heightInfluence > 0.05) {
                 specialTypes.push('slippery', 'slippery');
             }
             
-            if (heightInfluence > 0.2) {
+            // Исчезающие платформы появляются раньше
+            if (heightInfluence > 0.1) {
                 specialTypes.push('vanishing');
             }
             
-            if (heightInfluence > 0.2) {
+            // Липкие платформы появляются раньше
+            if (heightInfluence > 0.1) {
                 specialTypes.push('sticky', 'sticky');
             }
             
@@ -1603,16 +1687,35 @@ class GameScene extends Phaser.Scene {
         // Сохраняем ссылку на контейнер
         platform.container = platformContainer;
         
-        // Проверяем, нужно ли добавить бонусный предмет на платформу
-        // Не добавляем предметы на движущиеся, хрупкие или исчезающие платформы
-        if (!isMoving) {
-            // Рассчитываем шанс появления предмета в зависимости от высоты (score)
-            // Начинаем с 0% на высоте 1000 и достигаем максимума 20% на высоте 10000
-            const itemChance = this.score < 1000 ? 0 : Math.min(0.20, (this.score - 1000) / 45000);
-            
-            if (Math.random() < itemChance) {
-                this.createItem(platform);
-            }
+        // Рассчитываем шанс появления предмета в зависимости от высоты (score)
+        // Плавная прогрессия шансов (увеличена и начинается раньше):
+        // - 20% сразу с начала игры
+        // - 25% на высоте 1000
+        // - 30% на высоте 3000
+        // - 35% на высоте 5000 и выше
+        let itemChance = 0.2; // Базовый шанс появления предметов
+        
+        if (this.score <= 1000) {
+            // Линейная интерполяция между 0.20 и 0.25
+            itemChance = 0.20 + (this.score) * 0.05 / 1000;
+        } else if (this.score <= 3000) {
+            // Линейная интерполяция между 0.25 и 0.30
+            itemChance = 0.25 + (this.score - 1000) * 0.05 / 2000;
+        } else if (this.score <= 5000) {
+            // Линейная интерполяция между 0.30 и 0.35
+            itemChance = 0.30 + (this.score - 3000) * 0.05 / 2000;
+        } else {
+            // Максимальный шанс 35%
+            itemChance = 0.35;
+        }
+        
+        // Для движущихся платформ немного увеличиваем шанс появления предметов
+        if (isMoving) {
+            itemChance += 0.05;
+        }
+        
+        if (Math.random() < itemChance) {
+            this.createItem(platform);
         }
         
         // Переопределяем метод уничтожения для корректной очистки
@@ -1692,6 +1795,71 @@ class GameScene extends Phaser.Scene {
         if (platform.container) {
             platform.container.x = platform.x;
             platform.container.y = platform.y;
+        }
+        
+        // Обновляем положение предмета, если он есть на платформе
+        if (platform.item && platform.item.active) {
+            const item = platform.item;
+            item.x = platform.x;
+            
+            // Обрабатываем предметы с разными типами анимации
+            if (item.customHoverTween && item.customHoverTween.isPlaying()) {
+                // Если есть кастомная анимация парения, используем её прогресс
+                const baseY = platform.y + item.hoverOffset;
+                const amplitude = item.hoverAmplitude || 7;
+                
+                // Вычисляем Y-позицию на основе синусоидального движения
+                const progress = item.hoverProgress || 0;
+                const offset = Math.sin(progress * Math.PI) * amplitude;
+                item.y = baseY - offset;
+                
+                // Обновляем физическое тело предмета
+                item.body.position.x = item.x - item.body.width / 2;
+                item.body.position.y = item.y - item.body.height / 2;
+                item.body.updateFromGameObject();
+            } else if (item.initialYOffset !== undefined) {
+                // Для обычных предметов просто обновляем базовую позицию
+                if (item.hoverTween) {
+                    const baseY = platform.y + item.initialYOffset;
+                    
+                    // Обновляем параметры существующей анимации
+                    const currentY = item.y;
+                    const currentAmplitude = Math.abs(currentY - baseY);
+                    
+                    if (currentAmplitude < 1) {
+                        // Если анимация в крайней точке, обновляем целевые значения
+                        item.hoverTween.updateTo('y', baseY - 7, true);
+                    } else {
+                        // Иначе сохраняем амплитуду, но смещаем базовую точку
+                        const isMovingUp = item.hoverTween.isPlaying() && item.y > baseY;
+                        const targetY = isMovingUp ? baseY - 7 : baseY;
+                        item.hoverTween.updateTo('y', targetY, true);
+                    }
+                    
+                    // Обновляем физическое тело предмета после обновления tween
+                    item.body.position.x = item.x - item.body.width / 2;
+                    item.body.position.y = item.y - item.body.height / 2;
+                    item.body.updateFromGameObject();
+                } else {
+                    // Если нет анимации, просто обновляем положение
+                    item.y = platform.y + item.initialYOffset;
+                    
+                    // Обновляем физическое тело предмета
+                    item.body.position.x = item.x - item.body.width / 2;
+                    item.body.position.y = item.y - item.body.height / 2;
+                }
+            }
+            
+            // Обновляем флаг для Arcade Physics, указывающий что тело перемещено
+            item.refreshBody(); // Полностью пересоздаем колизионное тело с новыми координатами
+            
+            // Восстанавливаем кастомные размеры коллизии
+            if (item.customBodySize && item.customBodyOffset) {
+                item.body.setSize(item.customBodySize.width, item.customBodySize.height);
+                item.body.setOffset(item.customBodyOffset.x, item.customBodyOffset.y);
+            } else {
+                item.refreshBody();
+            }
         }
     }
 
@@ -1839,6 +2007,11 @@ class GameScene extends Phaser.Scene {
         item.setScale(this.itemScale);
         item.setDepth(20); // Чтобы отображался над платформами
         
+        // Если платформа движущаяся, сохраняем начальное смещение по Y
+        if (platform.isMoving) {
+            item.initialYOffset = y - platform.y;
+        }
+        
         // Фиксируем предмет в пространстве и уменьшаем зону коллизий
         item.body.allowGravity = false;
         item.body.immovable = true;
@@ -1849,6 +2022,13 @@ class GameScene extends Phaser.Scene {
         item.body.setSize(texWidth, texHeight);
         item.body.setOffset((item.width - texWidth) / 2, (item.height - texHeight) / 2);
         
+        // Сохраняем размеры физического тела для правильного обновления
+        item.customBodySize = { width: texWidth, height: texHeight };
+        item.customBodyOffset = { 
+            x: (item.width - texWidth) / 2, 
+            y: (item.height - texHeight) / 2 
+        };
+        
         // Добавляем анимацию "парения"
         const hoverTween = this.tweens.add({
             targets: item,
@@ -1858,6 +2038,32 @@ class GameScene extends Phaser.Scene {
             yoyo: true,
             repeat: -1
         });
+        
+        // Если предмет на движущейся платформе, настраиваем специальную анимацию
+        if (platform.isMoving) {
+            // Останавливаем стандартную анимацию парения и сохраняем свойства
+            hoverTween.pause();
+            item.hoverAmplitude = 7; // Амплитуда парения
+            item.hoverOffset = item.initialYOffset; // Начальное смещение от платформы
+            
+            // Создаем кастомную анимацию парения, которая будет обновляться в updateMovingPlatform
+            const customHoverTween = this.tweens.add({
+                targets: { value: 0 }, // Используем фиктивную цель
+                value: 1,
+                duration: 1000,
+                ease: 'Sine.easeInOut',
+                yoyo: true,
+                repeat: -1,
+                onUpdate: (tween) => {
+                    // Не обновляем позицию здесь, это будет делаться в updateMovingPlatform
+                    // Только сохраняем прогресс анимации
+                    item.hoverProgress = tween.progress;
+                }
+            });
+            
+            // Сохраняем ссылку на кастомную анимацию
+            item.customHoverTween = customHoverTween;
+        }
         
         // Добавляем свечение в зависимости от типа предмета
         let tint;
@@ -1892,10 +2098,14 @@ class GameScene extends Phaser.Scene {
         const items = [];
         let totalChance = 0;
         
-        // Собираем все типы предметов и их шансы
+        // Увеличиваем базовые шансы для всех типов предметов
+        // Это обеспечит более равномерное распределение разных типов предметов
         for (const [type, data] of Object.entries(this.itemTypes)) {
-            totalChance += data.chance;
-            items.push({ type, chance: data.chance });
+            // Увеличиваем шанс редких предметов на 30%
+            let adjustedChance = data.chance * 1.3;
+            
+            totalChance += adjustedChance;
+            items.push({ type, chance: adjustedChance });
         }
         
         // Выбираем случайный предмет на основе шансов

@@ -90,7 +90,7 @@ class PlayerAbilities {
     }
     
     // Проверка наличия платформы в пределах указанного расстояния снизу от игрока
-    isPlatformNearby(distance = 0) {
+    isPlatformNearby(distance = 7) {
         if (!this.player || !this.player.body) return false;
         
         // Создаем временный объект для проверки перекрытия
@@ -109,21 +109,21 @@ class PlayerAbilities {
         };
         
         // Проверяем наличие платформ в зоне проверки
-        let platformFound = false;
+        let foundPlatform = null;
         
         // Проверяем все группы платформ из GameScene
         this.scene.allPlatforms.forEach(group => {
             group.getChildren().forEach(platform => {
-                if (platformFound) return; // Если уже нашли, пропускаем
+                if (foundPlatform) return; // Если уже нашли, пропускаем
                 
                 // Проверка пересечения с платформой
                 if (this.checkOverlap(checkZone, platform.body)) {
-                    platformFound = true;
+                    foundPlatform = platform;
                 }
             });
         });
         
-        return platformFound;
+        return foundPlatform;
     }
     
     // Проверка пересечения двух прямоугольников
@@ -154,26 +154,35 @@ class PlayerAbilities {
             
             return true;
         }
-        // Проверяем, есть ли платформа в пределах 0(было 15) пикселей снизу
-        else if (this.isPlatformNearby()) {
-            // Выполняем обычный прыжок, как будто игрок на земле
-            const jumpVelocity = Math.round(this.player.jumpStrength);
-            this.player.body.setVelocityY(jumpVelocity);
-            
-            // Воспроизводим звук прыжка
-            if (this.sounds && this.sounds.jump) {
-                this.sounds.jump.play({ volume: 0.8 });
+        // Проверяем, есть ли платформа в пределах пикселей снизу
+        else {
+            const nearbyPlatform = this.isPlatformNearby();
+            if (nearbyPlatform) {
+                // Выполняем обычный прыжок, как будто игрок на земле
+                const jumpVelocity = Math.round(this.player.jumpStrength);
+                this.player.body.setVelocityY(jumpVelocity);
+                
+                // Воспроизводим звук прыжка
+                if (this.sounds && this.sounds.jump) {
+                    this.sounds.jump.play({ volume: 0.8 });
+                }
+                
+                // Визуальный эффект
+                this.createJumpEffect();
+                
+                // Активируем эффект платформы вручную с помощью нового метода
+                if (!nearbyPlatform.wasJumpedOn) {
+                    // Активируем платформу
+                    this.scene.activatePlatformEffectFromNearbyJump(this.player, nearbyPlatform);
+                }
+                
+                return true;
             }
-            
-            // Визуальный эффект
-            this.createJumpEffect();
-            
-            return true;
-        }
-        // Если игрок в воздухе, пробуем использовать двойной прыжок
-        else if (this.abilities.doubleJump.active && this.abilities.doubleJump.available) {
-            this.abilities.doubleJump.effect();
-            return true;
+            // Если игрок в воздухе, пробуем использовать двойной прыжок
+            else if (this.abilities.doubleJump.active && this.abilities.doubleJump.available) {
+                this.abilities.doubleJump.effect();
+                return true;
+            }
         }
         
         return false;
