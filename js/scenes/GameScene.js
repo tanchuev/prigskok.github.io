@@ -89,14 +89,14 @@ class GameScene extends Phaser.Scene {
                 type: 'bonus'
             },
             jump_height: { 
-                chance: 18,
+                chance: 40,
                 duration: 5000, // 5 секунд
                 heightMultiplier: 1.6, // Множитель высоты прыжка
                 type: 'bonus'
             },
             // Помехи для других игроков
             shockwave: { 
-                chance: 13,
+                chance: 0,
                 radius: 1500, // Радиус действия
                 force: 1500, // Сила отталкивания
                 type: 'obstacle'
@@ -109,18 +109,18 @@ class GameScene extends Phaser.Scene {
             },
             // Ловушки
             decrease_jump: { 
-                chance: 13,
+                chance: 20,
                 duration: 4000, // 4 секунды
                 heightMultiplier: 0.7, // Множитель высоты прыжка
                 type: 'trap'
             },
             knockback: { 
-                chance: 13,
+                chance: 20,
                 force: 1000, // Сила отброса
                 type: 'trap'
             },
             fade: {
-                chance: 13,
+                chance: 20,
                 duration: 10000, // 10 секунд
                 minAlpha: 0.0, // Минимальная прозрачность
                 maxAlpha: 0.1, // Максимальная прозрачность
