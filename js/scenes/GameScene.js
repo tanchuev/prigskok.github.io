@@ -213,6 +213,12 @@ class GameScene extends Phaser.Scene {
             this.movingPlatforms
         ];
         
+        // Графика для отладки зоны проверки прыжка с близкой платформы
+        this.jumpZoneDebugGraphics = this.add.graphics();
+        this.jumpZoneDebugGraphics.setDepth(200);
+        // По умолчанию отладка отключена
+        this.debugJumpZone = false;
+        
         this.createPlatform(
             400, 
             600, 
@@ -282,9 +288,6 @@ class GameScene extends Phaser.Scene {
         this.setupCollisions();
         
         this.playerAbilities = new PlayerAbilities(this, this.player);
-        
-        this.powerupManager = new PowerupManager(this);
-        this.powerupManager.startSpawning(20000, 'platform');
         
         this.setupCamera();
         
@@ -377,6 +380,11 @@ class GameScene extends Phaser.Scene {
         // Обновляем отображение рамки коллизий
         // this.drawDebugPlayerCollision();
         
+        // Отрисовка зоны проверки прыжка с близкой платформы (если отладка включена)
+        if (this.debugJumpZone) {
+            this.drawJumpZoneDebug();
+        }
+        
         if (this.cursors.left.isDown) {
             this.leftPressed = true;
             this.rightPressed = false;
@@ -428,8 +436,6 @@ class GameScene extends Phaser.Scene {
                 this.player.animationState.setAnimation(0, 'die', false);
 
                 this.physics.pause();
-
-                this.powerupManager.stopSpawning();
 
                 this.time.delayedCall(1000, () => {
                     this.scene.start('GameOverScene', { score: this.score });
@@ -490,8 +496,6 @@ class GameScene extends Phaser.Scene {
         }
         
         this.playerMovement();
-        
-        this.powerupManager.update();
         
         this.playerAbilities.updateAbilityIndicators();
         
@@ -750,6 +754,18 @@ class GameScene extends Phaser.Scene {
             this.spaceKey.on('up', () => {
                 this.jumpPressed = false;
             });
+            
+            // Добавляем клавишу D для переключения отладки зоны прыжка
+            const dKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+            dKey.on('down', () => {
+                // Переключаем флаг отладки
+                this.debugJumpZone = !this.debugJumpZone;
+                
+                // Если отладка отключена, очищаем графику
+                if (!this.debugJumpZone && this.jumpZoneDebugGraphics) {
+                    this.jumpZoneDebugGraphics.clear();
+                }
+            });
         }
     }
 
@@ -802,7 +818,7 @@ class GameScene extends Phaser.Scene {
         if (this.jumpPressed) {
             const now = Date.now();
             
-            if (now - this.lastJumpTime > this.jumpCooldown) {
+            if (now - this.lastJumpTime > this.jumpCooldown) {                
                 const jumpPerformed = this.playerAbilities.handleJump();
                 
                 if (jumpPerformed) {
@@ -1452,11 +1468,6 @@ class GameScene extends Phaser.Scene {
         // Обновляем положение последней платформы
         this.lastPlatformY = Math.min(this.lastPlatformY, y);
         
-        // Размещаем бонус с некоторой вероятностью
-        if (this.powerupManager && Math.random() < this.powerupManager.platformPowerupChance) {
-            this.powerupManager.spawnPowerupOnPlatform(platform);
-        }
-        
         return platform;
     }
 
@@ -1618,6 +1629,31 @@ class GameScene extends Phaser.Scene {
                     dust.destroy();
                 }
             });
+        }
+    }
+
+    // Метод для отрисовки зоны проверки прыжка с близкой платформы
+    drawJumpZoneDebug() {
+        if (!this.player || !this.player.body || !this.jumpZoneDebugGraphics) return;
+        
+        this.jumpZoneDebugGraphics.clear();
+        
+        // Получаем параметры игрока
+        const playerBottom = this.player.body.y + this.player.body.height;
+        const playerWidth = this.player.body.width;
+        const playerX = this.player.body.x;
+        
+        // Рисуем прямоугольник зоны проверки платформ для прыжка
+        this.jumpZoneDebugGraphics.lineStyle(2, 0x00ff00, 0.8);
+        this.jumpZoneDebugGraphics.strokeRect(playerX, playerBottom, playerWidth, 15);
+        
+        // Проверяем, нашлась ли платформа рядом
+        const platformNearby = this.playerAbilities.isPlatformNearby(15);
+        
+        // Если платформа найдена, меняем цвет прямоугольника
+        if (platformNearby) {
+            this.jumpZoneDebugGraphics.fillStyle(0x00ff00, 0.3);
+            this.jumpZoneDebugGraphics.fillRect(playerX, playerBottom, playerWidth, 15);
         }
     }
 } 
