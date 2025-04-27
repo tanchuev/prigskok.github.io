@@ -38,15 +38,6 @@ class GameScene extends Phaser.Scene {
         
         this.platformTextureScale = 0.25;
         
-        // Разные типы платформ с базовыми шансами появления
-        this.platformTypes = {
-            normal: { chance: 50 },
-            fragile: { chance: 20 },
-            slippery: { chance: 15 },
-            vanishing: { chance: 10 },
-            sticky: { chance: 5 }
-        };
-        
         // Шанс, что платформа будет движущейся (для всех типов)
         this.movingPlatformChance = 0.15;
         
@@ -171,6 +162,16 @@ class GameScene extends Phaser.Scene {
         
         this.platformTextureScale = 0.25;
         
+        
+        // Разные типы платформ
+        this.platformTypes = {
+            normal: { chance: 40 },
+            fragile: { chance: 15 },
+            slippery: { chance: 15 },
+            vanishing: { chance: 10 },
+            sticky: { chance: 10 }
+        };
+    
         // Разные типы платформ
         this.platformTypes = {
             normal: { chance: 40 },
@@ -575,9 +576,12 @@ class GameScene extends Phaser.Scene {
             });
         }
         
-        // Сбрасываем состояние игрока перед обновлением
-        this.player.onPlatform = false;
-        this.player.currentPlatform = null;
+        // Сбрасываем состояние игрока перед обновлением, если он не на земле
+        if (!this.player.body.touching.down) {
+            this.player.onPlatform = false;
+            this.player.currentPlatform = null;
+            this.player.isOnSlipperyPlatform = false;
+        }
         
         // Обновляем движущиеся платформы перед перемещением игрока
         this.movingPlatforms.getChildren().forEach(platform => {
@@ -708,30 +712,32 @@ class GameScene extends Phaser.Scene {
                 case 'slippery':
                     player.isOnSlipperyPlatform = true;
                     
-                    const currentVelocity = player.body.velocity.x * 1.25;
+                    const currentVelocity = player.body.velocity.x * 1.1;
                     let targetVelocity = currentVelocity;
                     
                     if (this.leftPressed) {
-                        targetVelocity = targetVelocity * 1.00005;
+                        targetVelocity = -this.moveSpeed * 1.5;
                         this.lastDirection = -1; 
                     } else if (this.rightPressed) {
-                        targetVelocity = targetVelocity * 1.00005;
+                        targetVelocity = this.moveSpeed * 1.5;
                         this.lastDirection = 1; 
                     } else {
                         // Сохраняем инерцию с минимальным трением
                         if (Math.abs(currentVelocity) > 10) {
                             // Мягкое замедление, очень малое трение для плавного скольжения
-                            targetVelocity = currentVelocity * 1.2; 
+                            targetVelocity = currentVelocity * 0.99; 
                             // Сохраняем направление движения
                             this.lastDirection = currentVelocity > 0 ? 1 : -1;
                         } else {
                             // Если скорость совсем низкая, добавляем небольшое скольжение в последнем направлении
-                            targetVelocity = this.lastDirection * 540;
+                            targetVelocity = this.lastDirection * 150;
                         }
                     }
                     
-                    // Плавная интерполяция к целевой скорости
-                    player.body.velocity.x = Phaser.Math.Linear(currentVelocity, targetVelocity, 0.3);
+                    // Применяем скорость напрямую без интерполяции для более выраженного эффекта
+                    player.body.velocity.x = targetVelocity;
+                    
+                    console.log('Скользкая платформа: скорость = ' + player.body.velocity.x);
                     break;
                     
                 case 'vanishing':
@@ -899,15 +905,30 @@ class GameScene extends Phaser.Scene {
         if (this.player.stuckOnPlatform) {
             this.player.body.velocity.x = 0;
         } else if (!this.player.knockbackActive) { // Добавляем проверку флага knockbackActive
-            // Горизонтальное движение
-            if (this.leftPressed) {
-                this.player.body.velocity.x = -this.moveSpeed;
-                this.player.setFlipX(false);
-            } else if (this.rightPressed) {
-                this.player.body.velocity.x = this.moveSpeed;
-                this.player.setFlipX(true);
+            // Если игрок на скользкой платформе, не сбрасываем его скорость
+            if (this.player.isOnSlipperyPlatform) {
+                // Учитываем направление движения
+                if (this.leftPressed) {
+                    this.player.body.velocity.x = -this.moveSpeed * 1.5;
+                    this.player.setFlipX(false);
+                    this.lastDirection = -1;
+                } else if (this.rightPressed) {
+                    this.player.body.velocity.x = this.moveSpeed * 1.5;
+                    this.player.setFlipX(true);
+                    this.lastDirection = 1;
+                } 
+                // Если нет нажатий, скорость сохраняется в playerHitPlatform
             } else {
-                this.player.body.velocity.x = 0;
+                // Стандартное горизонтальное движение
+                if (this.leftPressed) {
+                    this.player.body.velocity.x = -this.moveSpeed;
+                    this.player.setFlipX(false);
+                } else if (this.rightPressed) {
+                    this.player.body.velocity.x = this.moveSpeed;
+                    this.player.setFlipX(true);
+                } else {
+                    this.player.body.velocity.x = 0;
+                }
             }
         }
         
@@ -1251,7 +1272,7 @@ class GameScene extends Phaser.Scene {
                 
                 // Первые платформы всегда нормальные
                 if (i < 3 && this.score < 200) {
-                    platformType = 'normal';
+                    platformType = 'slippery';
                     isMoving = false;
                 }
                 
