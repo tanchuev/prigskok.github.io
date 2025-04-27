@@ -44,7 +44,7 @@ class PlayerAbilities {
                             
                             // Обновляем индикатор на UI
                             if (this.scene.doubleJumpIndicator) {
-                                this.scene.doubleJumpIndicator.setFillStyle(0x00ff00);
+                                this.scene.doubleJumpIndicator.setFillStyle(0x0066cc);
                             }
                             
                             // Обновляем индикатор прогресса
@@ -188,55 +188,10 @@ class PlayerAbilities {
     }
     
     createAbilityIndicators() {
-        // Создаем индикатор двойного прыжка
-        const doubleJumpIndicator = this.scene.add.circle(60, 540, 20, 0x00ff00, 0.7);
-        doubleJumpIndicator.setScrollFactor(0);
-        doubleJumpIndicator.setDepth(100);
-        
-        const doubleJumpIcon = this.scene.add.text(60, 540, "2", {
-            fontFamily: 'unutterable',
-            fontSize: '24px',
-            fill: '#fff'
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
-        
-        // Создаем индикатор прогресса восстановления двойного прыжка
-        const doubleJumpProgressIndicator = this.scene.add.arc(60, 540, 24, 0, 0, false, 0xffffff, 0.5);
-        doubleJumpProgressIndicator.setScrollFactor(0);
-        doubleJumpProgressIndicator.setDepth(99);
-        doubleJumpProgressIndicator.visible = false;
-        
-        // Сохраняем ссылки на индикаторы
-        this.scene.doubleJumpIndicator = doubleJumpIndicator;
-        this.scene.doubleJumpIcon = doubleJumpIcon;
-        this.scene.doubleJumpProgressIndicator = doubleJumpProgressIndicator;
+        // Индикатор двойного прыжка теперь создается в GameScene в методе createDoubleJumpIcon
     }
     
     updateAbilityIndicators() {
-        // Обновляем индикатор двойного прыжка
-        if (this.scene.doubleJumpIndicator && this.scene.doubleJumpProgressIndicator) {
-            // Получаем текущее состояние способности
-            const doubleJump = this.abilities.doubleJump;
-            
-            // Если способность в кулдауне
-            if (!doubleJump.available) {
-                const now = Date.now();
-                const elapsed = now - doubleJump.lastUsed;
-                const cooldown = doubleJump.cooldown;
-                const progress = Math.min(1, elapsed / cooldown);
-                
-                // Обновляем индикатор
-                this.scene.doubleJumpIndicator.setFillStyle(0x888888);
-                
-                // Показываем индикатор прогресса
-                this.scene.doubleJumpProgressIndicator.visible = true;
-                this.scene.doubleJumpProgressIndicator.setAngle(-90); // Начинаем с верхней точки
-                this.scene.doubleJumpProgressIndicator.setStartAngle(0);
-                this.scene.doubleJumpProgressIndicator.setEndAngle(progress * 360);
-            } else {
-                // Если способность доступна
-                this.scene.doubleJumpIndicator.setFillStyle(0x00ff00);
-                this.scene.doubleJumpProgressIndicator.visible = false;
-            }
-        }
+        // Индикатор двойного прыжка теперь обновляется в GameScene в методе updateDoubleJumpIcon
     }
 } 

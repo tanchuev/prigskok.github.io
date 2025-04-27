@@ -71,7 +71,6 @@ class GameScene extends Phaser.Scene {
         this.stickySlowdownFactor = 0.2;
         
         // Параметры для бонусных предметов
-        this.itemSpawnChance = 0.25; // Вероятность появления предмета на платформе (25%)
         this.itemScale = 0.75; // Масштаб предметов
         
         // Множители для комбинирования эффектов
@@ -117,7 +116,7 @@ class GameScene extends Phaser.Scene {
             },
             knockback: { 
                 chance: 13,
-                force: 2000, // Сила отброса
+                force: 1000, // Сила отброса
                 type: 'trap'
             }
         };
@@ -216,6 +215,9 @@ class GameScene extends Phaser.Scene {
         
         this.load.spineBinary('halloween-creature', './assets/images/CreatureScene/HalloweenCreature.skel');
         this.load.spineAtlas('halloween-creature-atlas', './assets/images/CreatureScene/HalloweenCreature.atlas');
+        
+        // Загрузка иконки двойного прыжка
+        this.load.image('double_jump', 'assets/images/double_jump.png');
         
         // Загрузка звуковых файлов
         this.load.audio('jump', 'assets/sounds/jump.mp3');
@@ -616,6 +618,10 @@ class GameScene extends Phaser.Scene {
         
         this.playerMovement();
         
+        // Обновляем индикатор двойного прыжка
+        this.updateDoubleJumpIcon();
+        
+        // Обновляем индикаторы способностей игрока
         this.playerAbilities.updateAbilityIndicators();
         
         // Обновляем активные эффекты бонусов
@@ -1587,8 +1593,17 @@ class GameScene extends Phaser.Scene {
         
         // Проверяем, нужно ли добавить бонусный предмет на платформу
         // Не добавляем предметы на движущиеся, хрупкие или исчезающие платформы
-        if (!isMoving && type !== 'fragile' && type !== 'vanishing' && Math.random() < this.itemSpawnChance) {
+        if (!isMoving) {
+            // Рассчитываем шанс появления предмета в зависимости от высоты (score)
+            // Начинаем с 0% на высоте 1000 и достигаем максимума 20% на высоте 10000
+            const itemChance = this.score < 1000 ? 0 : Math.min(0.20, (this.score - 1000) / 45000);
+            
+            // Временно добавляем предметы на каждую платформу
             this.createItem(platform);
+            
+            // if (Math.random() < itemChance) {
+            //     this.createItem(platform);
+            // }
         }
         
         // Переопределяем метод уничтожения для корректной очистки
@@ -1933,94 +1948,136 @@ class GameScene extends Phaser.Scene {
     // Методы для применения эффектов предметов
     
     applyJumpBoost(itemData) {
-        // Отменяем существующий таймер ускорения прыжков, если он есть
-        this.removeEffect('jump_boost');
+        // Проверяем, есть ли активный эффект этого типа
+        const existingEffect = this.activeEffects.find(effect => effect.type === 'jump_boost');
         
-        // Применяем эффект ускорения прыжков
-        this.jumpCooldownMultiplier = this.jumpCooldownMultiplier / itemData.speedMultiplier;
-        
-        // Обновляем реальное значение jumpCooldown
-        this.updateJumpCooldown();
-        
-        // Добавляем эффект в активные эффекты
-        const effectId = 'jump_boost_' + Date.now();
-        const effect = {
-            id: effectId,
-            type: 'jump_boost',
-            name: 'Ускорение прыжков',
-            factor: itemData.speedMultiplier, // Сохраняем коэффициент эффекта
-            animationSpeedFactor: itemData.animationSpeedMultiplier, // Сохраняем коэффициент скорости анимации
-            timer: this.time.delayedCall(itemData.duration, () => {
+        if (existingEffect) {
+            // Продлеваем время действия эффекта
+            if (existingEffect.timer) {
+                existingEffect.timer.remove();
+            }
+            
+            // Обновляем время начала и таймер эффекта
+            existingEffect.startTime = Date.now();
+            existingEffect.timer = this.time.delayedCall(itemData.duration, () => {
                 // Удаляем эффект из активных
-                this.removeEffect(effectId);
+                this.removeEffect(existingEffect.id);
                 
                 // Перерассчитываем множитель для всех оставшихся активных эффектов
                 this.recalculateJumpCooldownMultiplier();
                 
                 // Обновляем скорость анимации
                 this.updateAnimationSpeed();
-            }, [], this),
-            startTime: Date.now(),
-            duration: itemData.duration
-        };
-        
-        this.activeEffects.push(effect);
-        
-        // Добавляем визуальный индикатор эффекта
-        this.addEffectIcon(effect);
-        
-        // Обновляем скорость анимации
-        this.updateAnimationSpeed();
+            }, [], this);
+            
+            // Обновляем таймер отображения
+            this.updateEffectTimer(existingEffect);
+        } else {
+            // Применяем эффект ускорения прыжков из конфигурации
+            this.jumpCooldownMultiplier = 1.0 / itemData.speedMultiplier;
+            
+            // Обновляем реальное значение jumpCooldown
+            this.updateJumpCooldown();
+            
+            // Добавляем эффект в активные эффекты
+            const effectId = 'jump_boost_' + Date.now();
+            const effect = {
+                id: effectId,
+                type: 'jump_boost',
+                name: 'Ускорение прыжков',
+                factor: itemData.speedMultiplier, // Сохраняем коэффициент эффекта
+                animationSpeedFactor: itemData.animationSpeedMultiplier, // Сохраняем коэффициент скорости анимации
+                timer: this.time.delayedCall(itemData.duration, () => {
+                    // Удаляем эффект из активных
+                    this.removeEffect(effectId);
+                    
+                    // Перерассчитываем множитель для всех оставшихся активных эффектов
+                    this.recalculateJumpCooldownMultiplier();
+                    
+                    // Обновляем скорость анимации
+                    this.updateAnimationSpeed();
+                }, [], this),
+                startTime: Date.now(),
+                duration: itemData.duration
+            };
+            
+            this.activeEffects.push(effect);
+            
+            // Добавляем визуальный индикатор эффекта
+            this.addEffectIcon(effect);
+            
+            // Обновляем скорость анимации
+            this.updateAnimationSpeed();
+        }
     }
     
     recalculateJumpCooldownMultiplier() {
         // Сбрасываем множитель к базовому значению
         this.jumpCooldownMultiplier = 1.0;
         
-        // Применяем множители от всех активных эффектов jump_boost
-        this.activeEffects.forEach(effect => {
-            if (effect.type === 'jump_boost' && effect.factor) {
-                // Применяем множитель обратно, как и в методе applyJumpBoost
-                this.jumpCooldownMultiplier = this.jumpCooldownMultiplier / effect.factor;
-            }
-        });
+        // Применяем множитель от активного эффекта jump_boost (если есть)
+        const jumpBoostEffect = this.activeEffects.find(effect => effect.type === 'jump_boost');
+        if (jumpBoostEffect && jumpBoostEffect.factor) {
+            // Применяем множитель обратно, как в методе applyJumpBoost
+            this.jumpCooldownMultiplier = this.jumpCooldownMultiplier / jumpBoostEffect.factor;
+        }
         
         // Обновляем значение cooldown
         this.updateJumpCooldown();
     }
     
     applyJumpHeight(itemData) {
-        // Отменяем существующий таймер увеличения высоты прыжка, если он есть
-        this.removeEffect('jump_height');
+        // Проверяем, есть ли активный эффект этого типа
+        const existingEffect = this.activeEffects.find(effect => effect.type === 'jump_height');
         
-        // Применяем эффект увеличения высоты прыжка (умножаем текущий множитель)
-        this.jumpVelocityMultiplier = this.jumpVelocityMultiplier * itemData.heightMultiplier;
-        
-        // Обновляем реальное значение jumpVelocity
-        this.updateJumpVelocity();
-        
-        // Добавляем эффект в активные эффекты
-        const effectId = 'jump_height_' + Date.now();
-        const effect = {
-            id: effectId,
-            type: 'jump_height',
-            name: 'Увеличение высоты прыжков',
-            factor: itemData.heightMultiplier, // Сохраняем коэффициент эффекта
-            timer: this.time.delayedCall(itemData.duration, () => {
+        if (existingEffect) {
+            // Продлеваем время действия эффекта
+            if (existingEffect.timer) {
+                existingEffect.timer.remove();
+            }
+            
+            // Обновляем время начала и таймер эффекта
+            existingEffect.startTime = Date.now();
+            existingEffect.timer = this.time.delayedCall(itemData.duration, () => {
                 // Удаляем эффект из активных
-                this.removeEffect(effectId);
+                this.removeEffect(existingEffect.id);
                 
                 // Пересчитываем множители для всех оставшихся активных эффектов
                 this.recalculateJumpVelocityMultiplier();
-            }, [], this),
-            startTime: Date.now(),
-            duration: itemData.duration
-        };
-        
-        this.activeEffects.push(effect);
-        
-        // Добавляем визуальный индикатор эффекта
-        this.addEffectIcon(effect);
+            }, [], this);
+            
+            // Обновляем таймер отображения
+            this.updateEffectTimer(existingEffect);
+        } else {
+            // Применяем новый эффект увеличения высоты прыжка (учитываем только конфигурацию)
+            this.jumpVelocityMultiplier = 1.0 * itemData.heightMultiplier;
+            
+            // Обновляем реальное значение jumpVelocity
+            this.updateJumpVelocity();
+            
+            // Добавляем эффект в активные эффекты
+            const effectId = 'jump_height_' + Date.now();
+            const effect = {
+                id: effectId,
+                type: 'jump_height',
+                name: 'Увеличение высоты прыжков',
+                factor: itemData.heightMultiplier, // Сохраняем коэффициент эффекта
+                timer: this.time.delayedCall(itemData.duration, () => {
+                    // Удаляем эффект из активных
+                    this.removeEffect(effectId);
+                    
+                    // Пересчитываем множители для всех оставшихся активных эффектов
+                    this.recalculateJumpVelocityMultiplier();
+                }, [], this),
+                startTime: Date.now(),
+                duration: itemData.duration
+            };
+            
+            this.activeEffects.push(effect);
+            
+            // Добавляем визуальный индикатор эффекта
+            this.addEffectIcon(effect);
+        }
     }
     
     // Новый метод для перерасчета множителя скорости прыжка с учетом активных эффектов
@@ -2028,16 +2085,19 @@ class GameScene extends Phaser.Scene {
         // Сбрасываем множитель к базовому значению
         this.jumpVelocityMultiplier = 1.0;
         
-        // Применяем множители от всех активных эффектов jump_height и decrease_jump
-        this.activeEffects.forEach(effect => {
-            if (effect.type === 'jump_height' && effect.factor) {
-                // Применяем множитель, как в соответствующих методах
-                this.jumpVelocityMultiplier = this.jumpVelocityMultiplier * effect.factor;
-            } else if (effect.type === 'decrease_jump' && effect.factor) {
-                // Применяем множитель, как в соответствующих методах
-                this.jumpVelocityMultiplier = this.jumpVelocityMultiplier * effect.factor;
-            }
-        });
+        // Проверяем наличие эффектов jump_height и decrease_jump (берем только один из каждого типа)
+        const jumpHeightEffect = this.activeEffects.find(effect => effect.type === 'jump_height');
+        const decreaseJumpEffect = this.activeEffects.find(effect => effect.type === 'decrease_jump');
+        
+        // Применяем множитель jump_height, если есть
+        if (jumpHeightEffect && jumpHeightEffect.factor) {
+            this.jumpVelocityMultiplier *= jumpHeightEffect.factor;
+        }
+        
+        // Применяем множитель decrease_jump, если есть
+        if (decreaseJumpEffect && decreaseJumpEffect.factor) {
+            this.jumpVelocityMultiplier *= decreaseJumpEffect.factor;
+        }
         
         // Обновляем значение jumpVelocity
         this.updateJumpVelocity();
@@ -2082,61 +2142,128 @@ class GameScene extends Phaser.Scene {
     }
     
     applyFreeze(itemData) {
-        // Этот эффект должен влиять только на других игроков
-        // В многопользовательской игре здесь должна быть логика для других игроков
-        // Для одиночной реализации просто создаем визуальный эффект
+        // Проверяем, есть ли активный эффект этого типа
+        const existingEffect = this.activeEffects.find(effect => effect.type === 'freeze');
         
-        // НЕ ПРИМЕНЯЕМ замедление к текущему игроку
-        // Создаем визуальный эффект
-        const freezeEffect = this.add.circle(this.player.x, this.player.y, 150, 0x00ffff, 0.3);
-        freezeEffect.setDepth(40);
-        
-        // Анимируем эффект
-        this.tweens.add({
-            targets: freezeEffect,
-            alpha: 0,
-            duration: 1000,
-            onComplete: () => {
-                freezeEffect.destroy();
+        if (existingEffect) {
+            // Продлеваем время действия эффекта
+            if (existingEffect.timer) {
+                existingEffect.timer.remove();
             }
-        });
-        
-        // Визуальное оповещение о срабатывании эффекта
-        this.showTemporaryMessage('Замедление соперников!', 0x00ffff);
+            
+            // Обновляем время начала и таймер эффекта
+            existingEffect.startTime = Date.now();
+            existingEffect.timer = this.time.delayedCall(itemData.duration, () => {
+                // Удаляем эффект из активных
+                this.removeEffect(existingEffect.id);
+                
+                // Восстанавливаем скорость передвижения
+                this.player.speedMultiplier = 1;
+                this.updatePlayerSpeed();
+            }, [], this);
+            
+            // Обновляем таймер отображения
+            this.updateEffectTimer(existingEffect);
+        } else {
+            // Применяем эффект замедления
+            this.player.speedMultiplier = itemData.slowdownFactor;
+            
+            // Обновляем скорость передвижения
+            this.updatePlayerSpeed();
+            
+            // Создаем эффект льда вокруг игрока
+            const iceParticles = this.add.particles(this.player.x, this.player.y, 'snowflake', {
+                speed: 20,
+                scale: { start: 0.3, end: 0 },
+                quantity: 5,
+                lifespan: 1000,
+                alpha: { start: 0.5, end: 0 },
+                blendMode: 'ADD',
+                follow: this.player
+            });
+            
+            // Добавляем эффект в активные эффекты
+            const effectId = 'freeze_' + Date.now();
+            const effect = {
+                id: effectId,
+                type: 'freeze',
+                name: 'Замедление',
+                particles: iceParticles,
+                factor: itemData.slowdownFactor,
+                timer: this.time.delayedCall(itemData.duration, () => {
+                    // Удаляем эффект из активных
+                    this.removeEffect(effectId);
+                    
+                    // Восстанавливаем скорость передвижения
+                    this.player.speedMultiplier = 1;
+                    this.updatePlayerSpeed();
+                    
+                    // Останавливаем и удаляем частицы
+                    iceParticles.destroy();
+                }, [], this),
+                startTime: Date.now(),
+                duration: itemData.duration
+            };
+            
+            this.activeEffects.push(effect);
+            
+            // Добавляем визуальный индикатор эффекта
+            this.addEffectIcon(effect);
+        }
     }
     
     applyDecreaseJump(itemData) {
-        // Отменяем существующий таймер уменьшения высоты прыжка, если он есть
-        this.removeEffect('decrease_jump');
+        // Проверяем, есть ли активный эффект этого типа
+        const existingEffect = this.activeEffects.find(effect => effect.type === 'decrease_jump');
         
-        // Применяем эффект уменьшения высоты прыжка (умножаем текущий множитель)
-        this.jumpVelocityMultiplier = this.jumpVelocityMultiplier * itemData.heightMultiplier;
-        
-        // Обновляем реальное значение jumpVelocity
-        this.updateJumpVelocity();
-        
-        // Добавляем эффект в активные эффекты
-        const effectId = 'decrease_jump_' + Date.now();
-        const effect = {
-            id: effectId,
-            type: 'decrease_jump',
-            name: 'Уменьшение высоты прыжков',
-            factor: itemData.heightMultiplier, // Сохраняем коэффициент эффекта
-            timer: this.time.delayedCall(itemData.duration, () => {
+        if (existingEffect) {
+            // Продлеваем время действия эффекта
+            if (existingEffect.timer) {
+                existingEffect.timer.remove();
+            }
+            
+            // Обновляем время начала и таймер эффекта
+            existingEffect.startTime = Date.now();
+            existingEffect.timer = this.time.delayedCall(itemData.duration, () => {
                 // Удаляем эффект из активных
-                this.removeEffect(effectId);
+                this.removeEffect(existingEffect.id);
                 
                 // Перерассчитываем множитель для всех оставшихся активных эффектов
                 this.recalculateJumpVelocityMultiplier();
-            }, [], this),
-            startTime: Date.now(),
-            duration: itemData.duration
-        };
-        
-        this.activeEffects.push(effect);
-        
-        // Добавляем визуальный индикатор эффекта
-        this.addEffectIcon(effect);
+            }, [], this);
+            
+            // Обновляем таймер отображения
+            this.updateEffectTimer(existingEffect);
+        } else {
+            // Применяем эффект уменьшения высоты прыжка из конфигурации
+            this.jumpVelocityMultiplier = 1.0 * itemData.heightMultiplier;
+            
+            // Обновляем реальное значение jumpVelocity
+            this.updateJumpVelocity();
+            
+            // Добавляем эффект в активные эффекты
+            const effectId = 'decrease_jump_' + Date.now();
+            const effect = {
+                id: effectId,
+                type: 'decrease_jump',
+                name: 'Уменьшение высоты прыжков',
+                factor: itemData.heightMultiplier, // Сохраняем коэффициент эффекта
+                timer: this.time.delayedCall(itemData.duration, () => {
+                    // Удаляем эффект из активных
+                    this.removeEffect(effectId);
+                    
+                    // Перерассчитываем множитель для всех оставшихся активных эффектов
+                    this.recalculateJumpVelocityMultiplier();
+                }, [], this),
+                startTime: Date.now(),
+                duration: itemData.duration
+            };
+            
+            this.activeEffects.push(effect);
+            
+            // Добавляем визуальный индикатор эффекта
+            this.addEffectIcon(effect);
+        }
     }
     
     applyKnockback(itemData) {
@@ -2234,8 +2361,8 @@ class GameScene extends Phaser.Scene {
             bgColor = 0xffff00; // Желтый для других эффектов
         }
         
-        // Создаем фон для иконки
-        const iconBg = this.add.rectangle(0, 0, 40, 40, bgColor, 0.6).setOrigin(0);
+        // Создаем круглый фон для иконки
+        const iconBg = this.add.circle(20, 20, 20, bgColor, 0.8).setOrigin(0.5);
         effectContainer.add(iconBg);
         
         // Создаем иконку эффекта
@@ -2244,37 +2371,25 @@ class GameScene extends Phaser.Scene {
         icon.setScale(0.4);
         effectContainer.add(icon);
         
-        // Добавляем индикатор оставшегося времени
-        const timerText = this.add.text(20, 40, this.formatTime(effect.duration), {
-            fontFamily: 'unutterable',
-            fontSize: '12px',
-            color: '#FFFFFF',
-            align: 'center'
-        }).setOrigin(0.5, 0);
-        effectContainer.add(timerText);
-        
-        // Добавляем название эффекта
-        const nameText = this.add.text(45, 20, effect.name, {
-            fontFamily: 'unutterable',
-            fontSize: '12px',
-            color: '#FFFFFF',
-            align: 'left'
-        }).setOrigin(0, 0.5);
-        effectContainer.add(nameText);
-        
-        // Позиционируем в зависимости от количества активных эффектов
-        const existingEffects = Object.keys(this.effectsUI).length;
-        effectContainer.x = (existingEffects % 2) * 200;
-        effectContainer.y = Math.floor(existingEffects / 2) * 50;
-        
-        // Добавляем в контейнер эффектов
-        this.effectsIconsContainer.add(effectContainer);
+        // Добавляем индикатор оставшегося времени в виде круговой полосы
+        const timerArc = this.add.graphics();
+        effectContainer.add(timerArc);
         
         // Сохраняем ссылку на контейнер и элементы для обновления таймера
         this.effectsUI[effect.id] = {
             container: effectContainer,
-            timerText: timerText
+            timerArc: timerArc,
+            maxDuration: effect.duration
         };
+        
+        // Обновляем таймер сразу
+        this.updateEffectTimer(effect);
+        
+        // Добавляем в контейнер эффектов
+        this.effectsIconsContainer.add(effectContainer);
+        
+        // Перепозиционируем все иконки
+        this.repositionEffectIcons();
     }
     
     removeEffectIcon(effect) {
@@ -2293,25 +2408,34 @@ class GameScene extends Phaser.Scene {
     updateEffectTimer(effect) {
         if (this.effectsUI[effect.id]) {
             const remainingTime = effect.duration - (Date.now() - effect.startTime);
+            const progress = Math.max(0, Math.min(1, remainingTime / this.effectsUI[effect.id].maxDuration));
             
-            if (remainingTime > 0) {
-                // Обновляем текст таймера
-                this.effectsUI[effect.id].timerText.setText(this.formatTime(remainingTime));
-            } else {
-                // Если время истекло, но эффект еще не удален
-                this.effectsUI[effect.id].timerText.setText('0.0');
+            // Обновляем круговую полосу таймера
+            const timerArc = this.effectsUI[effect.id].timerArc;
+            timerArc.clear();
+            
+            // Рисуем серую полную окружность (фон)
+            timerArc.lineStyle(3, 0x666666, 0.5);
+            timerArc.strokeCircle(20, 20, 22);
+            
+            // Рисуем белую дугу, показывающую оставшееся время
+            if (progress > 0) {
+                timerArc.lineStyle(3, 0xFFFFFF, 1);
+                timerArc.beginPath();
+                timerArc.arc(20, 20, 22, Phaser.Math.DegToRad(270), Phaser.Math.DegToRad(270 + 360 * progress), false);
+                timerArc.strokePath();
             }
         }
     }
     
     repositionEffectIcons() {
-        // Перепозиционируем иконки эффектов
+        // Перепозиционируем иконки эффектов в один ряд
         const effectIds = Object.keys(this.effectsUI);
         
         effectIds.forEach((id, index) => {
             const container = this.effectsUI[id].container;
-            container.x = (index % 2) * 200;
-            container.y = Math.floor(index / 2) * 50;
+            container.x = index * 50;
+            container.y = 0;
         });
     }
     
@@ -2364,25 +2488,116 @@ class GameScene extends Phaser.Scene {
 
     createEffectsUI() {
         // Создаем контейнер для отображения активных эффектов
-        this.effectsContainer = this.add.container(150, 50);
+        this.effectsContainer = this.add.container(16, 100);
         this.effectsContainer.setScrollFactor(0);
         this.effectsContainer.setDepth(200);
         
-        // Заголовок секции эффектов
-        const effectsTitle = this.add.text(0, 0, 'Активные эффекты:', {
-            fontFamily: 'unutterable',
-            fontSize: '16px',
-            color: '#FFFFFF',
-            align: 'left'
-        });
-        this.effectsContainer.add(effectsTitle);
-        
         // Контейнер для иконок эффектов
-        this.effectsIconsContainer = this.add.container(0, 25);
+        this.effectsIconsContainer = this.add.container(0, 0);
         this.effectsContainer.add(this.effectsIconsContainer);
         
         // Объект для хранения и отслеживания визуальных эффектов на экране
         this.effectsUI = {};
+        
+        // Добавляем индикатор двойного прыжка в том же стиле, что и эффекты
+        this.createDoubleJumpIcon();
+    }
+
+    // Добавляем новый метод для создания иконки двойного прыжка
+    createDoubleJumpIcon() {
+        // Создаем контейнер для эффекта
+        const doubleJumpContainer = this.add.container(0, 0);
+        
+        // Создаем круглый фон для иконки
+        const iconBg = this.add.circle(20, 20, 20, 0x0066cc, 0.8).setOrigin(0.5);
+        doubleJumpContainer.add(iconBg);
+        
+        // Создаем иконку эффекта
+        const icon = this.add.image(20, 20, 'double_jump').setOrigin(0.5);
+        icon.setScale(0.4);
+        doubleJumpContainer.add(icon);
+        
+        // Добавляем индикатор кулдауна в виде круговой полосы
+        const timerArc = this.add.graphics();
+        doubleJumpContainer.add(timerArc);
+        
+        // Сохраняем ссылку на контейнер и элементы
+        this.doubleJumpUI = {
+            container: doubleJumpContainer,
+            timerArc: timerArc,
+            iconBg: iconBg
+        };
+        
+        // Добавляем в контейнер эффектов
+        this.effectsIconsContainer.add(doubleJumpContainer);
+        
+        // Перепозиционируем все иконки
+        this.repositionEffectIcons();
+    }
+    
+    // Обновление индикатора двойного прыжка
+    updateDoubleJumpIcon() {
+        if (this.doubleJumpUI && this.playerAbilities) {
+            const doubleJump = this.playerAbilities.abilities.doubleJump;
+            
+            // Обновляем цвет фона в зависимости от доступности
+            if (!doubleJump.available) {
+                this.doubleJumpUI.iconBg.setFillStyle(0x888888, 0.8);
+                
+                // Рассчитываем прогресс кулдауна
+                const now = Date.now();
+                const elapsed = now - doubleJump.lastUsed;
+                const cooldown = doubleJump.cooldown;
+                const progress = Math.min(1, elapsed / cooldown);
+                
+                // Обновляем круговую полосу таймера
+                const timerArc = this.doubleJumpUI.timerArc;
+                timerArc.clear();
+                
+                // Рисуем серую полную окружность (фон)
+                timerArc.lineStyle(3, 0x666666, 0.5);
+                timerArc.strokeCircle(20, 20, 22);
+                
+                // Рисуем белую дугу, показывающую оставшееся время
+                if (progress > 0) {
+                    timerArc.lineStyle(3, 0xFFFFFF, 1);
+                    timerArc.beginPath();
+                    timerArc.arc(20, 20, 22, Phaser.Math.DegToRad(270), Phaser.Math.DegToRad(270 + 360 * progress), false);
+                    timerArc.strokePath();
+                }
+            } else {
+                this.doubleJumpUI.iconBg.setFillStyle(0x0066cc, 0.8);
+                
+                // Очищаем индикатор прогресса
+                this.doubleJumpUI.timerArc.clear();
+                
+                // Рисуем полную окружность
+                this.doubleJumpUI.timerArc.lineStyle(3, 0xFFFFFF, 0.5);
+                this.doubleJumpUI.timerArc.strokeCircle(20, 20, 22);
+            }
+        }
+    }
+
+    repositionEffectIcons() {
+        // Перепозиционируем иконки эффектов в один ряд
+        // Всегда помещаем двойной прыжок первым, затем активные эффекты
+        let xPosition = 0;
+        
+        // Сначала размещаем двойной прыжок, если он есть
+        if (this.doubleJumpUI) {
+            this.doubleJumpUI.container.x = xPosition;
+            this.doubleJumpUI.container.y = 0;
+            xPosition += 50;
+        }
+        
+        // Затем размещаем все активные эффекты
+        const effectIds = Object.keys(this.effectsUI);
+        effectIds.forEach((id) => {
+            const container = this.effectsUI[id].container;
+            container.x = xPosition;
+            container.y = 0;
+            xPosition += 50;
+        });
     }
 
     // Добавляем новый метод для отображения границ коллизий предметов
