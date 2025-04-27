@@ -1182,10 +1182,22 @@ class GameScene extends Phaser.Scene {
         // Увеличиваем расстояние между платформами с ростом высоты
         const getStepForHeight = (score) => {
             let step = MIN_PLATFORM_STEP;
-            if (score > 500) {
+            
+            if (score > 500 && score < 10000) {
+                // Стандартная логика для высот до 10000
                 step += Math.min(40, score / 50);
+            } else if (score >= 10000 && score <= 12000) {
+                // В диапазоне 10000-12000 увеличиваем базовое расстояние между платформами
+                const progressFactor = (score - 10000) / 2000; // От 0 до 1
+                
+                // Базовое расстояние увеличивается от текущего до максимального
+                step = MIN_PLATFORM_STEP + 40 + (progressFactor * 30);
+            } else if (score > 12000) {
+                // Максимальное расстояние после 12000
+                step = MIN_PLATFORM_STEP + 70;
             }
-            return Math.min(MAX_PLATFORM_STEP, step);
+            
+            return Math.min(MAX_PLATFORM_STEP + 50, step); // Увеличен максимальный шаг для высоких уровней
         };
         
         // Плотность платформ (сколько платформ на экран)
@@ -1194,8 +1206,14 @@ class GameScene extends Phaser.Scene {
                 return 8; // Больше платформ внизу
             } else if (score < 2000) {
                 return 6;
+            } else if (score < 10000) {
+                return 5; // Средняя плотность платформ
+            } else if (score >= 10000 && score <= 12000) {
+                // Плавно уменьшаем количество платформ с 5 до 3 для повышения сложности
+                const reductionFactor = (score - 10000) / 2000; // От 0 до 1
+                return Math.max(3, 5 - (reductionFactor * 2));
             } else {
-                return 5; // Меньше платформ на большой высоте
+                return 3; // Минимальная плотность платформ после 12000
             }
         };
         
@@ -1205,6 +1223,14 @@ class GameScene extends Phaser.Scene {
             
             if (score < 300) {
                 return baseWidth * (1.0 + Math.random() * 0.5); // 1.0-1.5x в начале
+            } else if (score >= 10000 && score <= 12000) {
+                // В диапазоне 10000-12000 делаем платформы меньше для повышения сложности
+                const reductionFactor = (score - 10000) / 2000; // От 0 до 1
+                const scaleFactor = Math.max(0.5, 0.7 - (reductionFactor * 0.2));
+                return baseWidth * scaleFactor * (0.8 + Math.random() * 0.3);
+            } else if (score > 12000) {
+                // После 12000 делаем платформы очень узкими
+                return baseWidth * 0.5 * (0.7 + Math.random() * 0.2);
             } else {
                 // Постепенное уменьшение размера платформ
                 const scaleFactor = Math.max(0.6, 1.0 - (score / 10000));
@@ -1401,11 +1427,41 @@ class GameScene extends Phaser.Scene {
                 
                 if (this.score > 100) {
                     // Определяем шансы для разных типов платформ
-                    const normalChance = Math.max(this.minSafePlatformsPercent, 80 - (this.score / 100));
-                    const fragileChance = Math.min(30, 5 + (this.score / 400));
-                    const slipperyChance = Math.min(25, 5 + (this.score / 500));
-                    const vanishingChance = Math.min(20, 3 + (this.score / 600));
-                    const stickyChance = Math.min(15, 2 + (this.score / 700));
+                    let normalChance;
+                    
+                    if (this.score >= 10000 && this.score <= 12000) {
+                        // Плавно уменьшаем шанс обычных платформ с 20% до 0% в диапазоне 10000-12000
+                        normalChance = Math.max(0, 20 - ((this.score - 10000) / 2000) * 20);
+                    } else if (this.score > 12000) {
+                        // Выше 12000 нет обычных платформ
+                        normalChance = 0;
+                    } else {
+                        normalChance = Math.max(this.minSafePlatformsPercent, 80 - (this.score / 100));
+                    }
+                    
+                    // Увеличиваем шансы сложных платформ в диапазоне 10000-12000
+                    let fragileChance, slipperyChance, vanishingChance, stickyChance;
+                    
+                    if (this.score >= 10000 && this.score <= 12000) {
+                        // Линейное увеличение шанса сложных платформ
+                        const difficultyIncrease = (this.score - 10000) / 2000; // От 0 до 1
+                        fragileChance = Math.min(40, 30 + (difficultyIncrease * 10));
+                        slipperyChance = Math.min(35, 25 + (difficultyIncrease * 10));
+                        vanishingChance = Math.min(30, 20 + (difficultyIncrease * 10));
+                        stickyChance = Math.min(25, 15 + (difficultyIncrease * 10));
+                    } else if (this.score > 12000) {
+                        // Максимальные шансы сложных платформ
+                        fragileChance = 40;
+                        slipperyChance = 35;
+                        vanishingChance = 30;
+                        stickyChance = 25;
+                    } else {
+                        // Обычная прогрессия
+                        fragileChance = Math.min(30, 5 + (this.score / 400));
+                        slipperyChance = Math.min(25, 5 + (this.score / 500));
+                        vanishingChance = Math.min(20, 3 + (this.score / 600));
+                        stickyChance = Math.min(15, 2 + (this.score / 700));
+                    }
                     
                     // Общая сумма шансов
                     const totalChance = normalChance + fragileChance + slipperyChance + vanishingChance + stickyChance;
@@ -1426,9 +1482,20 @@ class GameScene extends Phaser.Scene {
                     }
                     
                     // Определяем, будет ли платформа движущейся
-                    // Новая формула: чем выше игрок, тем больше вероятность движущихся платформ
-                    // При достижении высоты 7000-10000 вероятность 80-95%
-                    const movingChance = Math.min(0.95, 0.1 + (this.score / 7500));
+                    // В диапазоне 10000-12000 увеличиваем шанс движущихся платформ еще больше
+                    let movingChance;
+                    
+                    if (this.score >= 10000 && this.score <= 12000) {
+                        // От 80% до 95% вероятности при 10000-12000
+                        movingChance = 0.8 + ((this.score - 10000) / 2000) * 0.15;
+                    } else if (this.score > 12000) {
+                        // 95% вероятности после 12000
+                        movingChance = 0.95;
+                    } else {
+                        // Исходная формула для высот до 10000
+                        movingChance = Math.min(0.8, 0.1 + (this.score / 7500));
+                    }
+                    
                     isMoving = this.score > 300 && Math.random() < movingChance;
                 }
                 
@@ -1547,13 +1614,31 @@ class GameScene extends Phaser.Scene {
                     
                     // Создаем промежуточную платформу только если нет перекрытия
                     if (!bridgeOverlaps) {
+                        // Для высот 10000-12000 контролируем тип промежуточных платформ
+                        let bridgeType = 'normal';
+                        
+                        // После 10000 высоты промежуточные платформы больше не всегда обычные
+                        if (this.score >= 10000 && this.score <= 12000) {
+                            // Шанс обычной платформы зависит от высоты (постепенно уменьшается до 0)
+                            const normalChance = Math.max(0, 0.5 - ((this.score - 10000) / 2000) * 0.5);
+                            if (Math.random() > normalChance) {
+                                // Выбираем случайный тип для промежуточной платформы
+                                const types = ['fragile', 'slippery', 'vanishing', 'sticky'];
+                                bridgeType = Phaser.Utils.Array.GetRandom(types);
+                            }
+                        } else if (this.score > 12000) {
+                            // Выше 12000 промежуточные платформы никогда не обычные
+                            const types = ['fragile', 'slippery', 'vanishing', 'sticky'];
+                            bridgeType = Phaser.Utils.Array.GetRandom(types);
+                        }
+                        
                         const bridgePlatform = this.createPlatform(
                             midX,
                             midY,
                             bridgeWidth,
                             this.platformHeight,
-                            'normal',
-                            false
+                            bridgeType,
+                            this.score > 10000 && Math.random() < 0.5 // 50% шанс движущихся промежуточных платформ после 10000
                         );
                         
                         if (bridgePlatform) {
@@ -1574,6 +1659,40 @@ class GameScene extends Phaser.Scene {
     }
 
     getPlatformType(heightInfluence) {
+        // На высотах 10000-12000 используем модифицированную логику
+        if (this.score >= 10000) {
+            // Сначала определяем, будет ли платформа специальной
+            // На высоте 10000-12000 шанс специальных платформ от 90% до 100%
+            // Выше 12000 - всегда 100%
+            let specialChance;
+            if (this.score >= 10000 && this.score <= 12000) {
+                specialChance = 0.9 + ((this.score - 10000) / 2000) * 0.1;
+            } else {
+                specialChance = 1.0; // Выше 12000 все платформы специальные
+            }
+            
+            if (Math.random() < specialChance) {
+                let specialTypes = [];
+                
+                // Хрупкие платформы встречаются чаще
+                specialTypes.push('fragile', 'fragile', 'fragile');
+                
+                // Скользкие платформы встречаются часто
+                specialTypes.push('slippery', 'slippery');
+                
+                // Исчезающие платформы с большой вероятностью
+                specialTypes.push('vanishing', 'vanishing');
+                
+                // Липкие платформы тоже нужны
+                specialTypes.push('sticky');
+                
+                return Phaser.Utils.Array.GetRandom(specialTypes);
+            }
+            
+            return 'normal';
+        }
+        
+        // Стандартная логика для высот до 10000
         // Увеличиваем шанс специальных платформ и снижаем порог их появления
         const specialChance = 0.7 + (heightInfluence * 0.2);
         
