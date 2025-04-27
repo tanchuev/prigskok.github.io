@@ -1914,6 +1914,12 @@ class GameScene extends Phaser.Scene {
             } else {
                 item.refreshBody();
             }
+            
+            // Обновляем положение свечения
+            if (item.glow && item.glow.active) {
+                item.glow.x = item.x;
+                item.glow.y = item.y;
+            }
         }
     }
 
@@ -2083,20 +2089,35 @@ class GameScene extends Phaser.Scene {
             y: (item.height - texHeight) / 2 
         };
         
-        // Добавляем анимацию "парения"
-        const hoverTween = this.tweens.add({
-            targets: item,
-            y: y - 7, // Небольшая амплитуда парения
-            duration: 1000, // Медленное плавное движение
-            ease: 'Sine.easeInOut',
-            yoyo: true,
-            repeat: -1
-        });
+        // Определяем тип эффекта и цвет свечения
+        let glowColor;
+        const itemData = this.itemTypes[itemType];
         
-        // Если предмет на движущейся платформе, настраиваем специальную анимацию
+        if (itemData.type === 'bonus') {
+            glowColor = 0x00ff00; // Зеленый для бонусов
+        } else if (itemData.type === 'obstacle') {
+            glowColor = 0x0000ff; // Синий для помех другим игрокам
+        } else {
+            glowColor = 0xff0000; // Красный для ловушек
+        }
+        
+        // Создаем эффект свечения
+        const glow = this.add.sprite(x, y, `item_${itemType}`);
+        glow.setScale(this.itemScale * 1.3); // Немного больше самого предмета
+        glow.setAlpha(0.7); // Полупрозрачное
+        glow.setBlendMode(Phaser.BlendModes.ADD); // Режим смешивания для эффекта свечения
+        glow.setTint(glowColor);
+        glow.setDepth(19); // Под предметом
+        
+        // Сохраняем ссылку на свечение в объекте предмета
+        item.glow = glow;
+        
+        // Создаем группу для совместной анимации предмета и свечения
+        const hoverGroup = [item, glow];
+        
+        // Добавляем анимацию "парения" для обоих элементов
         if (platform.isMoving) {
-            // Останавливаем стандартную анимацию парения и сохраняем свойства
-            hoverTween.pause();
+            // Для движущихся платформ используем специальную логику
             item.hoverAmplitude = 7; // Амплитуда парения
             item.hoverOffset = item.initialYOffset; // Начальное смещение от платформы
             
@@ -2117,27 +2138,43 @@ class GameScene extends Phaser.Scene {
             
             // Сохраняем ссылку на кастомную анимацию
             item.customHoverTween = customHoverTween;
-        }
-        
-        // Добавляем свечение в зависимости от типа предмета
-        let tint;
-        if (this.itemTypes[itemType].type === 'bonus') {
-            tint = 0x00ff00; // Зеленый для бонусов
-        } else if (this.itemTypes[itemType].type === 'obstacle') {
-            tint = 0xffff00; // Желтый для помех
         } else {
-            tint = 0xff0000; // Красный для ловушек
+            // Для статичных платформ используем обычную анимацию
+            const hoverTween = this.tweens.add({
+                targets: item,
+                y: y - 7, // Небольшая амплитуда парения
+                duration: 1000, // Медленное плавное движение
+                ease: 'Sine.easeInOut',
+                yoyo: true,
+                repeat: -1,
+                onUpdate: () => {
+                    // Синхронизируем положение свечения с предметом
+                    if (glow && glow.active) {
+                        glow.y = item.y;
+                    }
+                }
+            });
+            
+            // Сохраняем ссылку на анимацию
+            item.hoverTween = hoverTween;
         }
         
-        // Добавляем тонкую рамку вместо мерцания
-        item.setTint(tint);
+        // Анимация пульсации свечения (только для размера и прозрачности)
+        this.tweens.add({
+            targets: glow,
+            alpha: { from: 0.4, to: 0.8 },
+            scale: { from: this.itemScale * 1.15, to: this.itemScale * 1.35 },
+            duration: 1200,
+            ease: 'Sine.easeInOut',
+            yoyo: true,
+            repeat: -1
+        });
         
         // Привязываем предмет к платформе и сохраняем ссылки
         platform.item = item;
         item.platform = platform;
         item.itemType = itemType;
         item.itemData = this.itemTypes[itemType];
-        item.hoverTween = hoverTween; // Сохраняем ссылку на анимацию
         
         // Создаем границы коллизии для визуализации
         if (!this.itemDebugGraphics) {
@@ -2211,6 +2248,11 @@ class GameScene extends Phaser.Scene {
             case 'knockback':
                 this.applyKnockback(itemData);
                 break;
+        }
+        
+        // Удаляем свечение, если оно есть
+        if (item.glow && item.glow.active) {
+            item.glow.destroy();
         }
         
         // Удаляем предмет
