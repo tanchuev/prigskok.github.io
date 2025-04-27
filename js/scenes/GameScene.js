@@ -19,6 +19,8 @@ class GameScene extends Phaser.Scene {
         this.lastPlatformY = 0;
         this.lastPlatformGenerationTime = undefined;
         this.waterLevel = 0;
+        this.lastPlatformCheckpoint = 600; // Инициализация этой переменной для правильного отслеживания контрольных точек
+        this.lastCleanupCheckpoint = 0;
         
         this.gameOver = false;
         this.platformYMin = 120;
@@ -87,6 +89,8 @@ class GameScene extends Phaser.Scene {
         
         this.lastPlatformY = 0;
         this.lastPlatformGenerationTime = undefined;
+        this.lastPlatformCheckpoint = 600; // Инициализация в init методе тоже
+        this.lastCleanupCheckpoint = 0;
         
         this.waterLevel = 0;
         
@@ -213,6 +217,9 @@ class GameScene extends Phaser.Scene {
         );
         this.lastPlatformY = 600;
         
+        // Генерируем начальные платформы для диапазона высот 600-800
+        this.generatePlatforms();
+        
         this.player = this.add.spine(400, this.initialPlayerY, 'halloween-creature', 'halloween-creature-atlas');
         
         this.player.skeleton.setSkinByName(this.selectedCharacter);
@@ -241,7 +248,7 @@ class GameScene extends Phaser.Scene {
         
         // Включаем отображение рамки коллизий в настройках физики
         this.physics.world.createDebugGraphic();
-        this.physics.world.debugGraphic.setVisible(true);
+        this.physics.world.debugGraphic.setVisible(false);
         
         this.player.setFlipX = function(flip) {
             if (flip) { // Отражение вправо
@@ -362,7 +369,7 @@ class GameScene extends Phaser.Scene {
         this.scoreText.setText('Высота: ' + this.score);
         
         // Обновляем отображение рамки коллизий
-        this.drawDebugPlayerCollision();
+        // this.drawDebugPlayerCollision();
         
         if (this.cursors.left.isDown) {
             this.leftPressed = true;
@@ -390,11 +397,13 @@ class GameScene extends Phaser.Scene {
         
         const playerCheckpoint = Math.floor(this.player.y / 100) * 100;
         
-        if (playerCheckpoint < this.lastPlatformCheckpoint - 100) {
+        // Изменённое условие: проверяем, нужно ли генерировать новые платформы
+        if (playerCheckpoint < this.lastPlatformCheckpoint - 100 || this.lastPlatformCheckpoint === undefined) {
             this.lastPlatformCheckpoint = playerCheckpoint;
             
             const platformGenerationThreshold = this.lastPlatformY + this.platformGenerationBuffer;
-            if (this.player.y < platformGenerationThreshold) {
+            // Генерируем платформы если игрок поднялся выше порога или если высота последней платформы меньше 800
+            if (this.player.y < platformGenerationThreshold || this.lastPlatformY < 800) {
                 this.generatePlatforms();
             }
         }
@@ -881,6 +890,18 @@ class GameScene extends Phaser.Scene {
             return platforms;
         };
         
+        // Проверка наличия платформ в определенном диапазоне высоты
+        const hasPlatformsInRange = (minY, maxY) => {
+            for (const group of this.allPlatforms) {
+                for (const platform of group.getChildren()) {
+                    if (platform.y >= minY && platform.y <= maxY) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+        
         const totalPlatforms = this.platforms.countActive() + this.fragilePlatforms.countActive() + 
             this.slipperyPlatforms.countActive() + this.vanishingPlatforms.countActive() + 
             this.stickyPlatforms.countActive() + this.movingPlatforms.countActive();
@@ -971,16 +992,25 @@ class GameScene extends Phaser.Scene {
         const viewportTop = this.cameras.main.scrollY;
         const bufferZone = 800; // Буферная зона над видимой областью
         const shouldGenerate = !this.player || this.lastPlatformY > viewportTop - bufferZone;
-            
-        if (shouldGenerate) {
+        
+        // Проверяем, есть ли платформы на высотах 600-800
+        const needPlatformsInInitialRange = !hasPlatformsInRange(600, 800) && this.score < 300;
+        
+        if (shouldGenerate || needPlatformsInInitialRange) {
             this.lastPlatformGenerationTime = Date.now();
             
+            // Если нужны платформы на начальных высотах, временно меняем lastPlatformY
+            let tempLastPlatformY = this.lastPlatformY;
+            if (needPlatformsInInitialRange) {
+                tempLastPlatformY = 800; // Начинаем генерацию с высоты 800
+            }
+            
             const platformDensity = getPlatformDensity(this.score);
-            const platformsToGenerate = 10; // Генерируем больше платформ за раз
+            const platformsToGenerate = needPlatformsInInitialRange ? 15 : 10; // Больше платформ, если генерируем начальный диапазон
             const generationHeight = 800; // Высота зоны генерации
             
             // Начинаем с последней сгенерированной платформы
-            let currentY = this.lastPlatformY;
+            let currentY = tempLastPlatformY;
             
             // Массив для хранения всех сгенерированных платформ
             const allGeneratedPlatforms = [];
@@ -1187,6 +1217,13 @@ class GameScene extends Phaser.Scene {
                         }
                     }
                 }
+            }
+
+            // В конце функции восстанавливаем lastPlatformY, если мы его временно меняли
+            if (needPlatformsInInitialRange && allGeneratedPlatforms.length > 0) {
+                // Используем минимальную Y-координату из сгенерированных платформ
+                allGeneratedPlatforms.sort((a, b) => a.y - b.y);
+                this.lastPlatformY = allGeneratedPlatforms[0].y;
             }
         }
     }
