@@ -37,9 +37,10 @@ class GameScene extends Phaser.Scene {
         this.platformTypes = {
             normal: { chance: 25 },
             fragile: { chance: 20 },
-            slippery: { chance: 20 },
+            slippery: { chance: 15 },
             vanishing: { chance: 15 },
-            sticky: { chance: 15 }
+            sticky: { chance: 10 },
+            moving: { chance: 15 }
         };
         
         this.gameTime = 0;
@@ -49,6 +50,16 @@ class GameScene extends Phaser.Scene {
         this.generationRowsCount = 8;
         
         this.selectedCharacter = 'pumpkin';
+        
+        // Параметры для движущихся платформ
+        this.movingPlatformMinSpeed = 30;
+        this.movingPlatformMaxSpeed = 70;
+        
+        // Параметры для расстояния движения платформ
+        this.horizontalMinDistance = 100;
+        this.horizontalMaxDistance = 200;
+        this.verticalMinDistance = 50;
+        this.verticalMaxDistance = 100;
     }
 
     init(data) {
@@ -85,11 +96,12 @@ class GameScene extends Phaser.Scene {
         
         // Разные типы платформ
         this.platformTypes = {
-            normal: { chance: 50 },
+            normal: { chance: 40 },
             fragile: { chance: 15 },
             slippery: { chance: 15 },
             vanishing: { chance: 10 },
-            sticky: { chance: 10 }
+            sticky: { chance: 10 },
+            moving: { chance: 10 }
         };
         
         // Мобильное управление
@@ -98,6 +110,16 @@ class GameScene extends Phaser.Scene {
         this.jumpPressed = false;
         
         this.gameTime = 0;
+        
+        // Параметры для движущихся платформ
+        this.movingPlatformMinSpeed = 30;
+        this.movingPlatformMaxSpeed = 70;
+        
+        // Параметры для расстояния движения платформ
+        this.horizontalMinDistance = 100;
+        this.horizontalMaxDistance = 200;
+        this.verticalMinDistance = 50;
+        this.verticalMaxDistance = 100;
     }
 
     preload() {
@@ -124,6 +146,11 @@ class GameScene extends Phaser.Scene {
             this.load.image(`platform_${type === 'default' ? 'normal' : type}_mid`, `assets/images/platforms/${type}_mid.png`);
             this.load.image(`platform_${type === 'default' ? 'normal' : type}_right`, `assets/images/platforms/${type}_right.png`);
         });
+        
+        // Используем текстуры обычной платформы для движущейся
+        this.load.image('platform_moving_left', 'assets/images/platforms/default_left.png');
+        this.load.image('platform_moving_mid', 'assets/images/platforms/default_mid.png');
+        this.load.image('platform_moving_right', 'assets/images/platforms/default_right.png');
     }
 
     create() {
@@ -140,13 +167,17 @@ class GameScene extends Phaser.Scene {
         this.vanishingPlatforms = this.physics.add.staticGroup();
         this.stickyPlatforms = this.physics.add.staticGroup();
         
+        // Группа для движущихся платформ (использует динамические тела)
+        this.movingPlatforms = this.physics.add.group();
+        
         // Объединенная группа всех платформ для коллизий
         this.allPlatforms = [
             this.platforms,
             this.fragilePlatforms,
             this.slipperyPlatforms,
             this.vanishingPlatforms,
-            this.stickyPlatforms
+            this.stickyPlatforms,
+            this.movingPlatforms
         ];
         
         this.createPlatform(
@@ -262,6 +293,7 @@ class GameScene extends Phaser.Scene {
         this.physics.add.collider(this.player, this.slipperyPlatforms, this.playerHitPlatform, null, this);
         this.physics.add.collider(this.player, this.vanishingPlatforms, this.playerHitPlatform, null, this);
         this.physics.add.collider(this.player, this.stickyPlatforms, this.playerHitPlatform, null, this);
+        this.physics.add.collider(this.player, this.movingPlatforms, this.playerHitPlatform, null, this);
     }
 
     setupCamera() {
@@ -372,8 +404,40 @@ class GameScene extends Phaser.Scene {
             });
         }
         
+        // Сбрасываем состояние игрока перед обновлением
         this.player.onPlatform = false;
         this.player.currentPlatform = null;
+        
+        // Обновляем движущиеся платформы перед перемещением игрока
+        this.movingPlatforms.getChildren().forEach(platform => {
+            this.updateMovingPlatform(platform, delta);
+        });
+
+        // Проверяем коллизии с платформами
+        this.allPlatforms.forEach(group => {
+            this.physics.collide(this.player, group, this.playerHitPlatform, null, this);
+        });
+        
+        // Если игрок стоит на движущейся платформе, перемещаем его вместе с ней
+        if (this.player.onPlatform && this.player.currentPlatform && this.player.currentPlatform.type === 'moving') {
+            const platform = this.player.currentPlatform;
+            if (platform.lastX !== undefined && platform.lastY !== undefined) {
+                const deltaX = platform.x - platform.lastX;
+                const deltaY = platform.y - platform.lastY;
+                
+                // Принудительно перемещаем игрока вместе с платформой
+                this.player.x += deltaX;
+                this.player.y += deltaY;
+                
+                // Для горизонтального движения также устанавливаем скорость
+                if (Math.abs(deltaX) > 0.001 && platform.movementDirection === 'horizontal') {
+                    // Применяем скорость только если игрок не пытается двигаться самостоятельно
+                    if (!this.leftPressed && !this.rightPressed) {
+                        this.player.body.velocity.x = (deltaX / delta) * 1000;
+                    }
+                }
+            }
+        }
         
         this.playerMovement();
         
@@ -402,6 +466,11 @@ class GameScene extends Phaser.Scene {
             player.onPlatform = true;
             player.currentPlatform = platform;
             
+            // Сохраняем смещение игрока относительно центра платформы
+            if (platform.type === 'moving') {
+                player.platformOffset = player.x - platform.x;
+            }
+            
             if (isLanding && !platform.wasJumpedOn) {
                 platform.wasJumpedOn = true;
                 
@@ -415,6 +484,8 @@ class GameScene extends Phaser.Scene {
                     scoreValue = 20;
                 } else if (platform.type === 'sticky') {
                     scoreValue = 10;
+                } else if (platform.type === 'moving') {
+                    scoreValue = 15;
                 }
                 
                 this.score += scoreValue;
@@ -498,6 +569,13 @@ class GameScene extends Phaser.Scene {
                             yoyo: true,
                             ease: 'Sine.easeOut'
                         });
+                    }
+                    break;
+                    
+                case 'moving':
+                    // Уменьшаем горизонтальное скольжение игрока на платформе
+                    if (!this.leftPressed && !this.rightPressed) {
+                        player.body.velocity.x = 0;
                     }
                     break;
                     
@@ -601,6 +679,11 @@ class GameScene extends Phaser.Scene {
         
         const slowdownFactor = 0.9;
         
+        // Если игрок на движущейся платформе - особое поведение
+        const onMovingPlatform = this.player.onPlatform && 
+                                this.player.currentPlatform && 
+                                this.player.currentPlatform.type === 'moving';
+        
         if (this.leftPressed) {
             this.player.body.velocity.x = -moveSpeed;
             this.player.setFlipX(false);
@@ -610,10 +693,13 @@ class GameScene extends Phaser.Scene {
             this.player.setFlipX(true);
             isMoving = true;
         } else {
-            this.player.body.velocity.x *= slowdownFactor;
-            
-            if (Math.abs(this.player.body.velocity.x) < 10) {
-                this.player.body.velocity.x = 0;
+            // Если не на движущейся платформе, замедляем движение
+            if (!onMovingPlatform) {
+                this.player.body.velocity.x *= slowdownFactor;
+                
+                if (Math.abs(this.player.body.velocity.x) < 10) {
+                    this.player.body.velocity.x = 0;
+                }
             }
         }
         
@@ -688,9 +774,11 @@ class GameScene extends Phaser.Scene {
         const ROWS_TO_GENERATE = Math.min(this.generationRowsCount, 6);
         
         const totalPlatforms = this.platforms.countActive() + this.fragilePlatforms.countActive() + 
-            this.slipperyPlatforms.countActive() + this.vanishingPlatforms.countActive() + this.stickyPlatforms.countActive();
+            this.slipperyPlatforms.countActive() + this.vanishingPlatforms.countActive() + 
+            this.stickyPlatforms.countActive() + this.movingPlatforms.countActive();
             
         if (totalPlatforms === 0) {
+            // Первая платформа (стартовая) - обычная для удобства начала игры
             this.createPlatform(
                 this.cameras.main.width / 2,
                 this.cameras.main.height - 100,
@@ -776,25 +864,8 @@ class GameScene extends Phaser.Scene {
                         }
                         
                         if (!overlaps || (i === 0 && attempts >= 3)) {
-                            let platformType = 'normal';
-                            
-                            if (this.score > 200) {
-                                const typeRoll = Math.random();
-                                
-                                if (typeRoll < 0.2) {
-                                    platformType = 'fragile';
-                                } else if (typeRoll < 0.4) {
-                                    platformType = 'slippery';
-                                } else if (typeRoll < 0.5 && this.score > 500) {
-                                    platformType = 'vanishing';
-                                } else if (typeRoll < 0.6 && this.score > 400) {
-                                    platformType = 'sticky';
-                                }
-                            }
-                            
-                            if (!atLeastOnePlatformCreated && (this.score < 400 || Math.random() < 0.7)) {
-                                platformType = 'normal';
-                            }
+                            // ВРЕМЕННО: Все платформы движущиеся для тестирования
+                            let platformType = 'moving';
                             
                             const platform = this.createPlatform(
                                 x,
@@ -805,6 +876,27 @@ class GameScene extends Phaser.Scene {
                             );
                             
                             if (platform) {
+                                // Добавляем случайную скорость для разнообразия теста
+                                if (platform.type === 'moving') {
+                                    // Случайно выбираем горизонтальное или вертикальное движение
+                                    const directionTypeRoll = Math.random();
+                                    if (directionTypeRoll < 0.7) { // 70% горизонтальных
+                                        platform.movementDirection = 'horizontal';
+                                        platform.targetPosition.x = platform.startPosition.x + (this.horizontalMinDistance + Math.random() * 
+                                            (this.horizontalMaxDistance - this.horizontalMinDistance)) * (Math.random() < 0.5 ? 1 : -1);
+                                        platform.targetPosition.y = platform.startPosition.y;
+                                    } else { // 30% вертикальных
+                                        platform.movementDirection = 'vertical';
+                                        platform.targetPosition.x = platform.startPosition.x;
+                                        platform.targetPosition.y = platform.startPosition.y + (this.verticalMinDistance + 
+                                            Math.random() * (this.verticalMaxDistance - this.verticalMinDistance));
+                                    }
+                                    
+                                    // Разная скорость
+                                    platform.movementSpeed = this.movingPlatformMinSpeed + 
+                                        Math.random() * (this.movingPlatformMaxSpeed - this.movingPlatformMinSpeed);
+                                }
+                                
                                 rowPlatforms.push(platform);
                                 platformCreated = true;
                                 atLeastOnePlatformCreated = true;
@@ -817,15 +909,25 @@ class GameScene extends Phaser.Scene {
                 if (!atLeastOnePlatformCreated) {
                     const x = 200 + Math.random() * 400;
                     const width = this.platformWidth * 1.0;
-                    this.createPlatform(
+                    const platform = this.createPlatform(
                         x,
                         currentY,
                         width,
                         this.platformHeight,
-                        'normal'
+                        'moving'
                     );
                     
-                    platformsGenerated++;
+                    if (platform) {
+                        // Горизонтальное движение для запасных платформ
+                        platform.movementDirection = 'horizontal';
+                        platform.targetPosition.x = platform.startPosition.x + (this.horizontalMinDistance + 
+                            Math.random() * (this.horizontalMaxDistance - this.horizontalMinDistance)) * (Math.random() < 0.5 ? 1 : -1);
+                        platform.targetPosition.y = platform.startPosition.y;
+                        platform.movementSpeed = this.movingPlatformMinSpeed + 
+                            Math.random() * (this.movingPlatformMaxSpeed - this.movingPlatformMinSpeed);
+                        
+                        platformsGenerated++;
+                    }
                 }
             }
         }
@@ -851,6 +953,10 @@ class GameScene extends Phaser.Scene {
                 specialTypes.push('sticky', 'sticky');
             }
             
+            if (heightInfluence > 0.1) {
+                specialTypes.push('moving', 'moving');
+            }
+            
             return Phaser.Utils.Array.GetRandom(specialTypes);
         }
         
@@ -864,6 +970,8 @@ class GameScene extends Phaser.Scene {
         }
         
         let group;
+        let isStatic = true;
+        
         switch(type) {
             case 'fragile':
                 group = this.fragilePlatforms;
@@ -876,6 +984,10 @@ class GameScene extends Phaser.Scene {
                 break;
             case 'sticky':
                 group = this.stickyPlatforms;
+                break;
+            case 'moving':
+                group = this.movingPlatforms;
+                isStatic = false;
                 break;
             default:
                 group = this.platforms;
@@ -900,7 +1012,35 @@ class GameScene extends Phaser.Scene {
         const platformContainer = this.add.container(x, y);
         platformContainer.setDepth(10);
         
-        const platform = group.create(x, y, `${textureKey}_mid`);
+        let platform;
+        
+        if (isStatic) {
+            platform = group.create(x, y, `${textureKey}_mid`);
+        } else {
+            platform = group.create(x, y, `${textureKey}_mid`);
+            platform.body.setImmovable(true);
+            platform.body.allowGravity = false;
+            
+            // Добавляем параметры для движущихся платформ
+            const movementDirection = Math.random() < 0.5 ? 'horizontal' : 'vertical';
+            const movementDistance = movementDirection === 'horizontal' ? 
+                this.horizontalMinDistance + Math.random() * (this.horizontalMaxDistance - this.horizontalMinDistance) : 
+                this.verticalMinDistance + Math.random() * (this.verticalMaxDistance - this.verticalMinDistance);
+            const movementSpeed = this.movingPlatformMinSpeed + Math.random() * (this.movingPlatformMaxSpeed - this.movingPlatformMinSpeed);
+            
+            platform.movementDirection = movementDirection;
+            platform.movementDistance = movementDistance;
+            platform.movementSpeed = movementSpeed;
+            platform.startPosition = { x, y };
+            platform.targetPosition = { 
+                x: movementDirection === 'horizontal' ? x + movementDistance : x,
+                y: movementDirection === 'vertical' ? y + movementDistance : y
+            };
+            platform.movingForward = true;
+            platform.lastX = x;
+            platform.lastY = y;
+        }
+        
         platform.setVisible(false);
         
         const scaledWidth = width;
@@ -949,6 +1089,68 @@ class GameScene extends Phaser.Scene {
         }
         
         return platform;
+    }
+
+    updateMovingPlatform(platform, delta) {
+        if (!platform.active || !platform.movementDirection) return;
+        
+        // Сохраняем текущую позицию для расчета смещения
+        platform.lastX = platform.x;
+        platform.lastY = platform.y;
+        
+        const speed = platform.movementSpeed * (delta / 1000);
+        
+        if (platform.movingForward) {
+            // Движение к целевой позиции
+            const distanceX = platform.targetPosition.x - platform.x;
+            const distanceY = platform.targetPosition.y - platform.y;
+            const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+            
+            if (distance < speed) {
+                // Если платформа достигла целевой точки
+                platform.x = platform.targetPosition.x;
+                platform.y = platform.targetPosition.y;
+                platform.movingForward = false;
+            } else {
+                // Перемещаем платформу в направлении цели
+                const directionX = distanceX / distance;
+                const directionY = distanceY / distance;
+                
+                platform.x += directionX * speed;
+                platform.y += directionY * speed;
+            }
+        } else {
+            // Движение к начальной позиции
+            const distanceX = platform.startPosition.x - platform.x;
+            const distanceY = platform.startPosition.y - platform.y;
+            const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+            
+            if (distance < speed) {
+                // Если платформа вернулась в начальную точку
+                platform.x = platform.startPosition.x;
+                platform.y = platform.startPosition.y;
+                platform.movingForward = true;
+            } else {
+                // Перемещаем платформу в направлении начальной точки
+                const directionX = distanceX / distance;
+                const directionY = distanceY / distance;
+                
+                platform.x += directionX * speed;
+                platform.y += directionY * speed;
+            }
+        }
+        
+        // Устанавливаем скорость для физического тела платформы
+        const velocityX = (platform.x - platform.lastX) * (1000 / delta);
+        const velocityY = (platform.y - platform.lastY) * (1000 / delta);
+        platform.body.velocity.x = velocityX;
+        platform.body.velocity.y = velocityY;
+        
+        // Обновляем положение контейнера с визуальными элементами
+        if (platform.container) {
+            platform.container.x = platform.x;
+            platform.container.y = platform.y;
+        }
     }
 
     updatePlatformScales() {
