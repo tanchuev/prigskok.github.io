@@ -15,22 +15,12 @@ class StartScene extends Phaser.Scene {
         const title = this.add.text(400, 150, 'ПРЫГ-СКОК', {
             fontFamily: 'unutterable',
             fontSize: '64px',
-            fill: '#ffffff',
+            fill: '#8B0000',
             fontStyle: 'bold',
             stroke: '#000000',
             strokeThickness: 6
         });
         title.setOrigin(0.5);
-        
-        // Подзаголовок
-        const subtitle = this.add.text(400, 230, 'Командная Высота', {
-            fontFamily: 'unutterable',
-            fontSize: '32px',
-            fill: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 4
-        });
-        subtitle.setOrigin(0.5);
         
         // Кнопка начала игры
         const startButton = this.add.text(400, 350, 'Начать игру', {
@@ -64,7 +54,7 @@ class StartScene extends Phaser.Scene {
             this.scene.start('CharacterSelectScene');
         });
         
-        // Кнопка для показа существ
+        // Кнопка для показа существ - скрыта
         const creaturesButton = this.add.text(400, 390, 'Хэллоуинские Существа', {
             fontFamily: 'unutterable',
             fontSize: '26px',
@@ -77,23 +67,7 @@ class StartScene extends Phaser.Scene {
             }
         });
         creaturesButton.setOrigin(0.5);
-        creaturesButton.setInteractive();
-        
-        // Анимация кнопки при наведении
-        creaturesButton.on('pointerover', () => {
-            creaturesButton.setStyle({ fill: '#ff8800' });
-        });
-        creaturesButton.on('pointerout', () => {
-            creaturesButton.setStyle({ fill: '#ffffff' });
-        });
-        
-        // Переход к сцене с существами
-        creaturesButton.on('pointerdown', () => {
-            creaturesButton.setStyle({ fill: '#ff0000' });
-        });
-        creaturesButton.on('pointerup', () => {
-            this.scene.start('CreatureScene');
-        });
+        creaturesButton.setVisible(false); // Скрываем кнопку
         
         // Инструкции
         const instructions = [
@@ -108,7 +82,7 @@ class StartScene extends Phaser.Scene {
             this.add.text(400, 470 + i * 30, instructions[i], {
                 fontFamily: 'unutterable',
                 fontSize: '18px',
-                fill: '#ffffff',
+                fill: '#888888',
                 stroke: '#000000',
                 strokeThickness: 2
             }).setOrigin(0.5);

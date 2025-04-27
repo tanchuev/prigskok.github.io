@@ -417,22 +417,7 @@ class GameScene extends Phaser.Scene {
             this.scene.launch('PauseScene', { gameScene: 'GameScene' });
         });
 
-        const pauseButton = this.add.image(750, 50, 'button-bg')
-            .setScale(0.3)
-            .setInteractive()
-            .setDepth(100);
-
-        const pauseText = this.add.text(750, 50, 'II', {
-            fontFamily: 'unutterable',
-            fontSize: '32px',
-            color: '#00FFFF',
-            align: 'center'
-        }).setOrigin(0.5).setDepth(100);
-
-        pauseButton.on('pointerdown', () => {
-            this.scene.pause();
-            this.scene.launch('PauseScene', { gameScene: 'GameScene' });
-        });
+        // Кнопка паузы будет добавлена в createUI
         
         // Инициализируем значения с учетом множителей
         this.updateJumpVelocity();
@@ -908,6 +893,25 @@ class GameScene extends Phaser.Scene {
         });
         this.scoreText.setScrollFactor(0);
         this.scoreText.setDepth(1000); // Устанавливаем высокое значение глубины, чтобы текст был поверх всех объектов
+        
+        // Добавляем кнопку паузы в правый верхний угол
+        const pauseButton = this.add.image(780, 40, 'button-bg')
+            .setScale(0.3)
+            .setInteractive()
+            .setDepth(1000)
+            .setScrollFactor(0); // Чтобы кнопка оставалась на месте при прокрутке
+
+        const pauseText = this.add.text(780, 40, 'II', {
+            fontFamily: 'unutterable',
+            fontSize: '32px',
+            color: '#00FFFF',
+            align: 'center'
+        }).setOrigin(0.5).setDepth(1000).setScrollFactor(0);
+
+        pauseButton.on('pointerdown', () => {
+            this.scene.pause();
+            this.scene.launch('PauseScene', { gameScene: 'GameScene' });
+        });
         
         if (this.sys.game.device.os.desktop) {
             const controlHint = this.add.text(16, 60, 

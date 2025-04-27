@@ -9,7 +9,7 @@ class CharacterSelectScene extends Phaser.Scene {
         this.add.image(400, 300, 'background');
         
         // Заголовок
-        const title = this.add.text(400, 100, 'ВЫБЕРИТЕ ПЕРСОНАЖА', {
+        const title = this.add.text(400, 180, 'ВЫБЕРИТЕ ПЕРСОНАЖА', {
             fontFamily: 'unutterable',
             fontSize: '36px',
             fill: '#ffffff',
@@ -21,10 +21,10 @@ class CharacterSelectScene extends Phaser.Scene {
         
         // Контейнеры для персонажей
         const characters = [
-            { name: 'frank', displayName: 'Франкенштейн', x: 200, y: 250 },
-            { name: 'witch', displayName: 'Ведьма', x: 400, y: 250 },
-            { name: 'pumpkin', displayName: 'Тыква', x: 600, y: 250 },
-            { name: 'skull', displayName: 'Череп', x: 400, y: 400 }
+            { name: 'pumpkin', displayName: 'Тыква', x: 160, y: 300 },
+            { name: 'frank', displayName: 'Франкенштейн', x: 320, y: 300 },
+            { name: 'witch', displayName: 'Ведьма', x: 480, y: 300 },
+            { name: 'skull', displayName: 'Череп', x: 640, y: 300 }
         ];
         
         // Создаем контейнеры и персонажей
