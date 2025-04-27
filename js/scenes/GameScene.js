@@ -226,7 +226,7 @@ class GameScene extends Phaser.Scene {
         
         this.physics.add.existing(this.player);
         
-        const bodyWidth = 600;
+        const bodyWidth = 500;
         const bodyHeight = 700;
         const bodyOffsetX_Left = -150;
         const bodyOffsetY = -bodyHeight;
@@ -234,6 +234,14 @@ class GameScene extends Phaser.Scene {
         this.player.body.setSize(bodyWidth, bodyHeight);
         this.player.body.setOffset(bodyOffsetX_Left, bodyOffsetY);
         this.player.body.setBounce(0.2);
+        
+        // Добавляем отображение рамки коллизий персонажа
+        this.debugGraphics = this.add.graphics();
+        this.debugGraphics.setDepth(150);
+        
+        // Включаем отображение рамки коллизий в настройках физики
+        this.physics.world.createDebugGraphic();
+        this.physics.world.debugGraphic.setVisible(true);
         
         this.player.setFlipX = function(flip) {
             if (flip) { // Отражение вправо
@@ -325,7 +333,7 @@ class GameScene extends Phaser.Scene {
         this.cameras.main.startFollow(this.player, false);
         
         this.cameras.main.setDeadzone(400, 200);
-        this.cameras.main.setFollowOffset(0, -200);
+        this.cameras.main.setFollowOffset(0, 100);
         
         this.lastPlatformCheckpoint = 0;
         this.lastCleanupCheckpoint = 0;
@@ -353,6 +361,9 @@ class GameScene extends Phaser.Scene {
         this.score = this.maxHeightReached;
         this.scoreText.setText('Высота: ' + this.score);
         
+        // Обновляем отображение рамки коллизий
+        this.drawDebugPlayerCollision();
+        
         if (this.cursors.left.isDown) {
             this.leftPressed = true;
             this.rightPressed = false;
@@ -368,7 +379,7 @@ class GameScene extends Phaser.Scene {
             this.jumpPressed = true;
         }
         
-        const cameraTargetY = Math.round(this.player.y) - 200;
+        const cameraTargetY = Math.round(this.player.y) - 350;
         
         const smoothFactor = 0.1;
         
@@ -475,6 +486,22 @@ class GameScene extends Phaser.Scene {
             this.player.onPlatform = false;
             this.player.currentPlatform = null;
         }
+    }
+
+    drawDebugPlayerCollision() {
+        if (!this.player || !this.player.body) return;
+        
+        this.debugGraphics.clear();
+        
+        // Рисуем рамку коллизий персонажа
+        this.debugGraphics.lineStyle(2, 0xff0000, 1);
+        
+        const x = this.player.body.x;
+        const y = this.player.body.y;
+        const width = this.player.body.width;
+        const height = this.player.body.height;
+        
+        this.debugGraphics.strokeRect(x, y, width, height);
     }
 
     playerHitPlatform(player, platform) {
@@ -789,31 +816,70 @@ class GameScene extends Phaser.Scene {
     generatePlatforms() {
         const MAX_JUMP_HEIGHT = this.playerMaxJumpHeight;
         const MAX_JUMP_WIDTH = this.playerMaxJumpDistance;
-        const MIN_HORIZONTAL_DISTANCE = 50;
         
-        // Меняем вертикальное расстояние в зависимости от высоты
-        let MIN_VERTICAL_OFFSET = this.platformYMin; 
-        let MAX_VERTICAL_OFFSET = this.platformYMax;
+        // Константы для генерации платформ в стиле Doodle Jump
+        const MIN_PLATFORM_STEP = 60;  // Минимальное вертикальное расстояние между платформами
+        const MAX_PLATFORM_STEP = 120; // Максимальное вертикальное расстояние между платформами
         
-        // Увеличиваем расстояние между платформами с ростом высоты, но не делаем его больше, чем игрок может преодолеть
-        if (this.score > 1000) {
-            MIN_VERTICAL_OFFSET += Math.min(MAX_JUMP_HEIGHT * 0.6, this.score / 60);
-            MAX_VERTICAL_OFFSET += Math.min(MAX_JUMP_HEIGHT * 0.8, this.score / 50);
-        }
-
-        // Снижаем количество платформ в ряду с ростом высоты, но гарантируем минимум 1-2 платформы
-        const heightFactor = Math.min(0.7, Math.max(0.1, this.score / 5000));
-        // Гарантируем минимум 2 платформы на высоких уровнях, чтобы был альтернативный путь
-        let platformsPerRowMax = Math.max(2, this.score > 3000 ? 1 + Math.floor(Math.random() * 2) : 2);
-        let platformsPerRowMin = Math.max(1, platformsPerRowMax - 1);
+        // Минимальное допустимое расстояние между платформами (для проверки перекрытия)
+        const MIN_VERTICAL_GAP = 70;   // Увеличено минимальное вертикальное расстояние
+        const MIN_HORIZONTAL_GAP = 30; // Минимальное горизонтальное расстояние между краями платформ
         
-        // Увеличиваем горизонтальное расстояние между платформами с ростом высоты, но не делаем его больше, чем игрок может преодолеть
-        let horizontalDistance = MIN_HORIZONTAL_DISTANCE;
-        if (this.score > 1000) {
-            horizontalDistance += Math.min(MAX_JUMP_WIDTH * 0.4, this.score / 50);
-        }
-
-        const ROWS_TO_GENERATE = Math.min(this.generationRowsCount, 6);
+        // Увеличиваем расстояние между платформами с ростом высоты
+        const getStepForHeight = (score) => {
+            let step = MIN_PLATFORM_STEP;
+            if (score > 500) {
+                step += Math.min(40, score / 50);
+            }
+            return Math.min(MAX_PLATFORM_STEP, step);
+        };
+        
+        // Плотность платформ (сколько платформ на экран)
+        const getPlatformDensity = (score) => {
+            if (score < 500) {
+                return 8; // Больше платформ внизу
+            } else if (score < 2000) {
+                return 6;
+            } else {
+                return 5; // Меньше платформ на большой высоте
+            }
+        };
+        
+        // Ширина платформ с учетом высоты
+        const getPlatformWidth = (score) => {
+            const baseWidth = this.platformWidth;
+            
+            if (score < 300) {
+                return baseWidth * (1.0 + Math.random() * 0.5); // 1.0-1.5x в начале
+            } else {
+                // Постепенное уменьшение размера платформ
+                const scaleFactor = Math.max(0.6, 1.0 - (score / 10000));
+                return baseWidth * scaleFactor * (0.8 + Math.random() * 0.5);
+            }
+        };
+        
+        // Функция проверки перекрытия платформ с учетом их размеров
+        const checkPlatformOverlap = (x1, y1, width1, x2, y2, width2) => {
+            const distanceX = Math.abs(x1 - x2);
+            const distanceY = Math.abs(y1 - y2);
+            
+            // Проверяем горизонтальное и вертикальное перекрытие
+            const horizontalOverlap = distanceX < (width1/2 + width2/2 + MIN_HORIZONTAL_GAP);
+            const verticalOverlap = distanceY < MIN_VERTICAL_GAP;
+            
+            return horizontalOverlap && verticalOverlap;
+        };
+        
+        // Функция получения списка всех активных платформ на экране
+        const getAllPlatforms = () => {
+            const platforms = [];
+            this.allPlatforms.forEach(group => {
+                group.getChildren().forEach(platform => {
+                    platforms.push(platform);
+                });
+            });
+            return platforms;
+        };
         
         const totalPlatforms = this.platforms.countActive() + this.fragilePlatforms.countActive() + 
             this.slipperyPlatforms.countActive() + this.vanishingPlatforms.countActive() + 
@@ -830,6 +896,45 @@ class GameScene extends Phaser.Scene {
                 false // Не двигается
             );
             this.lastPlatformY = this.cameras.main.height - 100;
+            
+            // Добавляем несколько дополнительных платформ внизу для начала игры
+            let lastY = this.lastPlatformY;
+            const initialPlatformsCount = 8;
+            
+            for (let i = 0; i < initialPlatformsCount; i++) {
+                // Увеличиваем расстояние между платформами в начале игры
+                lastY -= 90 + Math.random() * 30;
+                
+                // Чередуем позиции слева направо
+                let x;
+                if (i % 3 === 0) {
+                    // Левая часть экрана
+                    x = this.cameras.main.width * 0.25 + (Math.random() - 0.5) * 100;
+                } else if (i % 3 === 1) {
+                    // Правая часть экрана
+                    x = this.cameras.main.width * 0.75 + (Math.random() - 0.5) * 100;
+                } else {
+                    // Середина экрана
+                    x = this.cameras.main.width * 0.5 + (Math.random() - 0.5) * 150;
+                }
+                
+                // Ограничиваем x, чтобы платформа не выходила за края экрана
+                const platformWidth = this.platformWidth * 1.5;
+                x = Math.max(platformWidth/2 + 10, Math.min(this.cameras.main.width - platformWidth/2 - 10, x));
+                
+                this.createPlatform(
+                    x,
+                    lastY,
+                    platformWidth,
+                    this.platformHeight,
+                    'normal',
+                    false
+                );
+            }
+            
+            // Обновляем последнюю Y-координату
+            this.lastPlatformY = lastY;
+            
             return;
         }
         
@@ -862,268 +967,225 @@ class GameScene extends Phaser.Scene {
             });
         }
 
-        const shouldGenerate = !this.player || this.player.y < this.lastPlatformY + this.platformGenerationBuffer;
+        // Проверяем, нужно ли генерировать новые платформы
+        const viewportTop = this.cameras.main.scrollY;
+        const bufferZone = 800; // Буферная зона над видимой областью
+        const shouldGenerate = !this.player || this.lastPlatformY > viewportTop - bufferZone;
             
         if (shouldGenerate) {
             this.lastPlatformGenerationTime = Date.now();
             
-            let currentY = this.lastPlatformY;
-            let platformsGenerated = 0;
+            const platformDensity = getPlatformDensity(this.score);
+            const platformsToGenerate = 10; // Генерируем больше платформ за раз
+            const generationHeight = 800; // Высота зоны генерации
             
-            // Массив для хранения платформ в каждом ряду для проверки вертикальной доступности
-            const allGeneratedRows = [];
-
-            for (let row = 0; row < ROWS_TO_GENERATE; row++) {
-                const heightFactor = Math.min(0.7, Math.max(0.1, (this.score / 1000)));
+            // Начинаем с последней сгенерированной платформы
+            let currentY = this.lastPlatformY;
+            
+            // Массив для хранения всех сгенерированных платформ
+            const allGeneratedPlatforms = [];
+            
+            // Получаем все существующие платформы для проверки перекрытий
+            const existingPlatforms = getAllPlatforms();
+            
+            // Создаем координатную сетку для генерации платформ
+            // Разбиваем экран на 3 колонки и используем разные колонки для соседних платформ
+            const columns = [
+                { minX: 80, maxX: this.cameras.main.width * 0.33 - 20 },                  // Левая колонка
+                { minX: this.cameras.main.width * 0.33 + 20, maxX: this.cameras.main.width * 0.66 - 20 }, // Средняя колонка
+                { minX: this.cameras.main.width * 0.66 + 20, maxX: this.cameras.main.width - 80 }       // Правая колонка
+            ];
+            
+            let lastColumnIndex = -1; // Для отслеживания последней использованной колонки
+            
+            for (let i = 0; i < platformsToGenerate; i++) {
+                // Рассчитываем шаг для текущей высоты
+                const step = getStepForHeight(this.score);
                 
-                const verticalOffset = MIN_VERTICAL_OFFSET + 
-                    Math.floor(Math.random() * heightFactor * (MAX_VERTICAL_OFFSET - MIN_VERTICAL_OFFSET));
+                // Следующая Y-координата с небольшой вариацией
+                currentY -= step + Math.random() * 20;
                 
-                currentY -= verticalOffset;
-                this.lastPlatformY = Math.min(this.lastPlatformY, currentY);
+                // Выбираем колонку, отличную от предыдущей, для разнообразия и избегания перекрытий
+                let columnIndex;
+                do {
+                    columnIndex = Math.floor(Math.random() * columns.length);
+                } while (columnIndex === lastColumnIndex && columns.length > 1);
                 
-                const platformsInRow = Math.max(platformsPerRowMin, 1 + Math.floor(Math.random() * platformsPerRowMax));
+                lastColumnIndex = columnIndex;
+                const column = columns[columnIndex];
                 
-                const rowPlatforms = [];
+                // Случайная X-координата внутри выбранной колонки
+                const x = column.minX + Math.random() * (column.maxX - column.minX);
                 
-                let atLeastOnePlatformCreated = false;
+                // Вычисляем ширину платформы
+                const width = getPlatformWidth(this.score);
                 
-                for (let i = 0; i < platformsInRow; i++) {
-                    let attempts = 0;
-                    let platformCreated = false;
+                // Выбираем тип платформы в зависимости от высоты
+                let platformType = 'normal';
+                let isMoving = false;
+                
+                if (this.score > 100) {
+                    // Определяем шансы для разных типов платформ
+                    const normalChance = Math.max(this.minSafePlatformsPercent, 80 - (this.score / 100));
+                    const fragileChance = Math.min(30, 5 + (this.score / 400));
+                    const slipperyChance = Math.min(25, 5 + (this.score / 500));
+                    const vanishingChance = Math.min(20, 3 + (this.score / 600));
+                    const stickyChance = Math.min(15, 2 + (this.score / 700));
                     
-                    while (attempts < 5 && !platformCreated) {
-                        attempts++;
-                        
-                        const widthMultiplier = 0.6 + Math.random() * 1.2;
-                        // Уменьшаем размер платформ с ростом высоты
-                        let heightScaleFactor = 1.0;
-                        if (this.score > 1000) {
-                            heightScaleFactor = Math.max(0.6, 1.0 - (this.score / 10000));
+                    // Общая сумма шансов
+                    const totalChance = normalChance + fragileChance + slipperyChance + vanishingChance + stickyChance;
+                    
+                    // Выбираем тип платформы случайным образом
+                    const rand = Math.random() * totalChance;
+                    
+                    if (rand < normalChance) {
+                        platformType = 'normal';
+                    } else if (rand < normalChance + fragileChance) {
+                        platformType = 'fragile';
+                    } else if (rand < normalChance + fragileChance + slipperyChance) {
+                        platformType = 'slippery';
+                    } else if (rand < normalChance + fragileChance + slipperyChance + vanishingChance) {
+                        platformType = 'vanishing';
+                    } else {
+                        platformType = 'sticky';
+                    }
+                    
+                    // Определяем, будет ли платформа движущейся
+                    // Новая формула: чем выше игрок, тем больше вероятность движущихся платформ
+                    // При достижении высоты 7000-10000 вероятность 80-95%
+                    const movingChance = Math.min(0.95, 0.1 + (this.score / 7500));
+                    isMoving = this.score > 300 && Math.random() < movingChance;
+                }
+                
+                // Первые платформы всегда нормальные
+                if (i < 3 && this.score < 200) {
+                    platformType = 'normal';
+                    isMoving = false;
+                }
+                
+                // Проверяем, нет ли конфликта с существующими платформами
+                let overlaps = false;
+                
+                // Проверяем перекрытие с недавно созданными платформами
+                for (const platform of allGeneratedPlatforms) {
+                    if (checkPlatformOverlap(platform.x, platform.y, platform.displayWidth, x, currentY, width)) {
+                        overlaps = true;
+                        break;
+                    }
+                }
+                
+                // Проверяем перекрытие с уже существующими платформами
+                if (!overlaps) {
+                    for (const platform of existingPlatforms) {
+                        if (checkPlatformOverlap(platform.x, platform.y, platform.displayWidth, x, currentY, width)) {
+                            overlaps = true;
+                            break;
                         }
-                        const width = this.platformWidth * widthMultiplier * heightScaleFactor;
+                    }
+                }
+                
+                // Если есть перекрытие, пробуем найти другую позицию в той же колонке
+                if (overlaps) {
+                    let attempts = 0;
+                    const maxAttempts = 3;
+                    
+                    while (overlaps && attempts < maxAttempts) {
+                        // Смещаем Y-координату вверх
+                        currentY -= 30 + Math.random() * 20;
                         
-                        const x = this.platformXMin + width / 2 + 
-                            Math.random() * (this.cameras.main.width - 2 * this.platformXMin - width);
+                        // Генерируем новую X-координату в той же колонке
+                        const newX = column.minX + Math.random() * (column.maxX - column.minX);
                         
-                        let overlaps = false;
-                        for (const platform of rowPlatforms) {
-                            if (Math.abs(platform.x - x) < (platform.displayWidth / 2 + width / 2 + horizontalDistance)) {
+                        overlaps = false;
+                        
+                        // Проверяем снова новую позицию
+                        for (const platform of allGeneratedPlatforms) {
+                            if (checkPlatformOverlap(platform.x, platform.y, platform.displayWidth, newX, currentY, width)) {
                                 overlaps = true;
                                 break;
                             }
                         }
                         
-                        if (!overlaps || (i === 0 && attempts >= 3)) {
-                            // Для теста - ВРЕМЕННО: все платформы определенного типа
-                            let platformType = 'normal';
-                            
-                            if (this.score > 200) {
-                                // Динамически изменяем шансы появления платформ в зависимости от высоты
-                                const heightModifier = Math.min(0.7, Math.max(0.1, this.score / 5000));
-                                
-                                // С увеличением высоты шанс обычных платформ уменьшается, но не ниже minSafePlatformsPercent
-                                const normalChance = Math.max(this.minSafePlatformsPercent, 50 - (this.score / 100));
-                                
-                                // С увеличением высоты шанс сложных платформ увеличивается
-                                const fragileChance = Math.min(35, 20 + (this.score / 400));
-                                const slipperyChance = Math.min(30, 15 + (this.score / 500));
-                                const vanishingChance = Math.min(25, 10 + (this.score / 600));
-                                const stickyChance = Math.min(20, 5 + (this.score / 700));
-                                
-                                // Обновляем шансы
-                                this.platformTypes = {
-                                    normal: { chance: normalChance },
-                                    fragile: { chance: fragileChance },
-                                    slippery: { chance: slipperyChance },
-                                    vanishing: { chance: vanishingChance },
-                                    sticky: { chance: stickyChance }
-                                };
-                                
-                                // Рассчитываем тип платформы с учетом шансов
-                                const typeRoll = Math.random();
-                                const totalChance = 
-                                    this.platformTypes.normal.chance + 
-                                    this.platformTypes.fragile.chance + 
-                                    this.platformTypes.slippery.chance + 
-                                    this.platformTypes.vanishing.chance + 
-                                    this.platformTypes.sticky.chance;
-                                
-                                let cumulativeChance = 0;
-                                
-                                for (const type in this.platformTypes) {
-                                    cumulativeChance += this.platformTypes[type].chance / totalChance;
-                                    if (typeRoll < cumulativeChance) {
-                                        platformType = type;
-                                        break;
-                                    }
+                        if (!overlaps) {
+                            for (const platform of existingPlatforms) {
+                                if (checkPlatformOverlap(platform.x, platform.y, platform.displayWidth, newX, currentY, width)) {
+                                    overlaps = true;
+                                    break;
                                 }
-                                
-                                // Подсчитываем количество "безопасных" платформ в текущем ряду
-                                if (rowPlatforms.length > 0) {
-                                    let safeCount = 0;
-                                    for (const platform of rowPlatforms) {
-                                        if (platform.type === 'normal' || platform.type === 'slippery' || platform.type === 'sticky') {
-                                            safeCount++;
-                                        }
-                                    }
-                                    
-                                    // Если процент безопасных платформ ниже минимального, принудительно делаем эту платформу безопасной
-                                    const safePercent = (safeCount / rowPlatforms.length) * 100;
-                                    if (safePercent < this.minSafePlatformsPercent) {
-                                        // Выбираем безопасный тип платформы
-                                        const safeTypes = ['normal', 'slippery', 'sticky'];
-                                        platformType = Phaser.Utils.Array.GetRandom(safeTypes);
-                                    }
-                                }
-                            }
-                            
-                            // Первая платформа в ряду всегда достаточно безопасная для проходимости
-                            if (!atLeastOnePlatformCreated) {
-                                if (Math.random() < 0.7) {
-                                    platformType = 'normal';
-                                } else {
-                                    // Иногда делаем первую платформу слегка сложнее, но всё равно проходимой
-                                    platformType = Math.random() < 0.5 ? 'slippery' : 'sticky';
-                                }
-                            }
-                            
-                            // Определяем, будет ли платформа движущейся
-                            // Увеличиваем шанс движущихся платформ с ростом высоты
-                            const movingChance = Math.min(0.6, this.movingPlatformChance + (this.score / 5000));
-                            const isMoving = this.score > 300 && Math.random() < movingChance;
-                            
-                            const platform = this.createPlatform(
-                                x,
-                                currentY,
-                                width,
-                                this.platformHeight,
-                                platformType,
-                                isMoving
-                            );
-                            
-                            if (platform) {
-                                rowPlatforms.push(platform);
-                                platformCreated = true;
-                                atLeastOnePlatformCreated = true;
-                                platformsGenerated++;
                             }
                         }
+                        
+                        if (!overlaps) {
+                            // Найдена хорошая позиция
+                            x = newX;
+                        }
+                        
+                        attempts++;
                     }
                 }
                 
-                // После генерации всех платформ в ряду проверяем их доступность
-                if (rowPlatforms.length > 0) {
-                    // Проверяем, нет ли слишком больших промежутков между платформами
-                    rowPlatforms.sort((a, b) => a.x - b.x);
-                    
-                    for (let i = 0; i < rowPlatforms.length - 1; i++) {
-                        const gap = Math.abs(rowPlatforms[i + 1].x - rowPlatforms[i].x);
-                        if (gap > MAX_JUMP_WIDTH) {
-                            // Если промежуток слишком большой, добавляем промежуточную платформу
-                            const midX = rowPlatforms[i].x + (rowPlatforms[i + 1].x - rowPlatforms[i].x) / 2;
-                            const midWidth = this.platformWidth * 0.8;
-                            const newPlatform = this.createPlatform(
-                                midX,
-                                currentY,
-                                midWidth,
-                                this.platformHeight,
-                                'normal',
-                                false
-                            );
-                            
-                            if (newPlatform) {
-                                rowPlatforms.push(newPlatform);
-                            }
-                        }
-                    }
-                    
-                    // Сохраняем платформы текущего ряда для проверки вертикальной доступности
-                    allGeneratedRows.push({ y: currentY, platforms: [...rowPlatforms] });
-                }
-                
-                // Если не удалось создать платформы в ряду, добавляем запасную
-                if (!atLeastOnePlatformCreated) {
-                    const x = 200 + Math.random() * 400;
-                    const width = this.platformWidth * 1.0;
+                // Создаем платформу только если нет перекрытия
+                if (!overlaps) {
                     const platform = this.createPlatform(
                         x,
                         currentY,
                         width,
                         this.platformHeight,
-                        'normal',
-                        false // Запасные платформы не движутся для надежности
+                        platformType,
+                        isMoving
                     );
                     
                     if (platform) {
-                        platformsGenerated++;
-                        allGeneratedRows.push({ y: currentY, platforms: [platform] });
+                        allGeneratedPlatforms.push(platform);
+                        existingPlatforms.push(platform); // Добавляем в список для проверки будущих платформ
+                        this.lastPlatformY = Math.min(this.lastPlatformY, currentY);
                     }
                 }
             }
             
-            // Проверяем вертикальную доступность между рядами
-            for (let i = 1; i < allGeneratedRows.length; i++) {
-                const lowerRow = allGeneratedRows[i-1];
-                const upperRow = allGeneratedRows[i];
+            // Проверяем проходимость - добавляем дополнительные платформы, если расстояние слишком большое
+            allGeneratedPlatforms.sort((a, b) => b.y - a.y); // Сортируем по возрастанию высоты (сверху вниз)
+            
+            for (let i = 1; i < allGeneratedPlatforms.length; i++) {
+                const lowerPlatform = allGeneratedPlatforms[i-1];
+                const upperPlatform = allGeneratedPlatforms[i];
                 
-                // Вычисляем вертикальное расстояние между рядами
-                const verticalGap = Math.abs(lowerRow.y - upperRow.y);
+                const dx = Math.abs(lowerPlatform.x - upperPlatform.x);
+                const dy = Math.abs(lowerPlatform.y - upperPlatform.y);
                 
-                // Если расстояние слишком большое, игрок не сможет достичь следующего ряда
-                if (verticalGap > MAX_JUMP_HEIGHT) {
-                    // Добавляем промежуточную платформу примерно посередине
-                    const midY = lowerRow.y - verticalGap / 2;
+                // Если платформы слишком далеко друг от друга для прыжка
+                if ((dx > MAX_JUMP_WIDTH && dy > 0) || dy > MAX_JUMP_HEIGHT) {
+                    // Вычисляем промежуточную позицию
+                    const midX = (lowerPlatform.x + upperPlatform.x) / 2 + (Math.random() - 0.5) * 50;
+                    const midY = (lowerPlatform.y + upperPlatform.y) / 2;
                     
-                    // Выбираем случайную платформу из нижнего ряда
-                    const lowerPlatform = Phaser.Utils.Array.GetRandom(lowerRow.platforms);
+                    // Проверяем на перекрытие с существующими платформами
+                    let bridgeOverlaps = false;
+                    const bridgeWidth = this.platformWidth * 1.2;
                     
-                    // Добавляем промежуточную платформу выше текущей
-                    const bridgePlatform = this.createPlatform(
-                        lowerPlatform.x,
-                        midY,
-                        this.platformWidth,
-                        this.platformHeight,
-                        'normal',
-                        false
-                    );
-                }
-                
-                // Проверяем, есть ли достижимые пути между рядами
-                let pathFound = false;
-                
-                for (const lowerPlatform of lowerRow.platforms) {
-                    for (const upperPlatform of upperRow.platforms) {
-                        // Вычисляем расстояние по диагонали
-                        const dx = Math.abs(lowerPlatform.x - upperPlatform.x);
-                        const dy = Math.abs(lowerPlatform.y - upperPlatform.y);
-                        
-                        // Если расстояние в пределах досягаемости, путь найден
-                        if (dx <= MAX_JUMP_WIDTH && dy <= MAX_JUMP_HEIGHT) {
-                            pathFound = true;
+                    for (const platform of [...allGeneratedPlatforms, ...existingPlatforms]) {
+                        if (checkPlatformOverlap(platform.x, platform.y, platform.displayWidth, midX, midY, bridgeWidth)) {
+                            bridgeOverlaps = true;
                             break;
                         }
                     }
-                    if (pathFound) break;
-                }
-                
-                // Если путь не найден, создаем мост между рядами
-                if (!pathFound) {
-                    const lowerPlatform = Phaser.Utils.Array.GetRandom(lowerRow.platforms);
-                    const upperPlatform = Phaser.Utils.Array.GetRandom(upperRow.platforms);
                     
-                    // Создаем промежуточную платформу
-                    const midX = (lowerPlatform.x + upperPlatform.x) / 2;
-                    const midY = (lowerPlatform.y + upperPlatform.y) / 2;
-                    
-                    this.createPlatform(
-                        midX,
-                        midY,
-                        this.platformWidth,
-                        this.platformHeight,
-                        'normal',
-                        false
-                    );
+                    // Создаем промежуточную платформу только если нет перекрытия
+                    if (!bridgeOverlaps) {
+                        const bridgePlatform = this.createPlatform(
+                            midX,
+                            midY,
+                            bridgeWidth,
+                            this.platformHeight,
+                            'normal',
+                            false
+                        );
+                        
+                        if (bridgePlatform) {
+                            allGeneratedPlatforms.push(bridgePlatform);
+                            existingPlatforms.push(bridgePlatform);
+                        }
+                    }
                 }
             }
         }
@@ -1210,7 +1272,15 @@ class GameScene extends Phaser.Scene {
         const platformContainer = this.add.container(x, y);
         platformContainer.setDepth(10);
         
-        // Создаем физическое тело платформы
+        // Рассчитываем масштабированные размеры текстур
+        const scaledLeftWidth = leftWidth * this.platformTextureScale;
+        const scaledMidWidth = midWidth * this.platformTextureScale;
+        const scaledRightWidth = rightWidth * this.platformTextureScale;
+        
+        // Вычисляем общую визуальную ширину платформы
+        const visualWidth = width;
+        
+        // Создаем физическое тело платформы с размерами равными визуальным
         let platform;
         if (isMoving) {
             platform = group.create(x, y, `${textureKey}_mid`);
@@ -1246,49 +1316,34 @@ class GameScene extends Phaser.Scene {
         // Скрываем физическое тело (будет видна только визуальная часть)
         platform.setVisible(false);
         
-        // Настраиваем размеры физического тела
-        const scaledWidth = width;
-        const scaledHeight = 20;
+        // Настраиваем размеры физического тела точно под визуальные размеры
+        const scaledWidth = visualWidth;
+        const scaledHeight = height;
         platform.setScale(scaledWidth / platform.width, scaledHeight / platform.height);
         platform.refreshBody();
         
         // Сохраняем тип и состояние платформы
         platform.type = type;
         platform.isMoving = isMoving;
+        platform.visualWidth = visualWidth;
         
         // Очищаем контейнер перед добавлением новых элементов
         platformContainer.removeAll(true);
         
-        // УПРОЩЕННЫЙ ПОДХОД: Создаем платформу из трех частей - левая, средняя, правая
-        
-        // Рассчитываем масштабированные размеры текстур
-        const scaledLeftWidth = leftWidth * this.platformTextureScale;
-        const scaledMidWidth = midWidth * this.platformTextureScale;
-        const scaledRightWidth = rightWidth * this.platformTextureScale;
-        
         // 1. Добавляем левую часть
-        const leftPartX = -width/2 + scaledLeftWidth/2;
+        const leftPartX = -visualWidth/2 + scaledLeftWidth/2;
         const leftPart = this.add.image(leftPartX, 0, `${textureKey}_left`);
         leftPart.setScale(this.platformTextureScale);
         leftPart.setName('leftPart');
         platformContainer.add(leftPart);
         
-        // 2. Добавляем правую часть
-        const rightPartX = width/2 - scaledRightWidth/2;
-        const rightPart = this.add.image(rightPartX, 0, `${textureKey}_right`);
-        rightPart.setScale(this.platformTextureScale);
-        rightPart.setName('rightPart');
-        platformContainer.add(rightPart);
-        
         // 3. Вычисляем пространство для средней части
-        const middleSpace = width - scaledLeftWidth - scaledRightWidth;
+        const middleSpace = visualWidth - scaledLeftWidth - scaledRightWidth;
         
         // 4. Добавляем среднюю часть, но только если есть пространство
         if (middleSpace > 0) {
-            // Средняя часть размещается в центре между левой и правой
-            const midPartX = (leftPartX + rightPartX) / 2;
-            
             // Создаем среднюю часть
+            const midPartX = (leftPartX + scaledLeftWidth/2) + middleSpace/2;
             const midPart = this.add.image(midPartX, 0, `${textureKey}_mid`);
             
             // Масштабируем среднюю часть по ширине, чтобы заполнить всю середину
@@ -1299,6 +1354,13 @@ class GameScene extends Phaser.Scene {
             midPart.setName('midPart');
             platformContainer.add(midPart);
         }
+        
+        // 2. Добавляем правую часть ПОСЛЕДНЕЙ, гарантируя что она будет последней в списке
+        const rightPartX = visualWidth/2 - scaledRightWidth/2;
+        const rightPart = this.add.image(rightPartX, 0, `${textureKey}_right`);
+        rightPart.setScale(this.platformTextureScale);
+        rightPart.setName('rightPart');
+        platformContainer.add(rightPart);
         
         // Сохраняем ссылку на контейнер
         platform.container = platformContainer;
@@ -1389,7 +1451,7 @@ class GameScene extends Phaser.Scene {
         this.allPlatforms.forEach(group => {
             group.getChildren().forEach(platform => {
                 if (platform.container) {
-                    const width = platform.width;
+                    const width = platform.visualWidth || platform.width;
                     
                     const textureKey = `platform_${platform.type}`;
                     const leftTexture = this.textures.get(`${textureKey}_left`);
@@ -1402,40 +1464,53 @@ class GameScene extends Phaser.Scene {
                         const rightWidth = rightTexture.source[0].width;
                         const platformHeight = leftTexture.source[0].height;
                         
-                        const scaledHeight = 20;
+                        // Обновляем физическое тело платформы
+                        const scaledHeight = this.platformHeight;
                         platform.setScale(width / platform.width, scaledHeight / platform.height);
                         platform.refreshBody();
                         
                         const parts = platform.container.list;
                         
-                        if (parts.length >= 2) {
-                            // Первым элементом всегда должна быть левая часть, а последним - правая
-                            const leftPart = parts[0];
-                            const rightPart = parts[parts.length - 1];
-                            
-                            // Проверяем, правильно ли размещены текстуры
-                            if (leftPart && leftPart.texture && leftPart.texture.key.includes('_left')) {
-                                leftPart.setScale(this.platformTextureScale);
-                                leftPart.x = -width/2 + (leftWidth*this.platformTextureScale)/2;
+                        // Находим части по именам вместо позиций в массиве
+                        let leftPart = null;
+                        let rightPart = null;
+                        let midParts = [];
+                        
+                        parts.forEach(part => {
+                            if (part.name === 'leftPart') {
+                                leftPart = part;
+                            } else if (part.name === 'rightPart') {
+                                rightPart = part;
+                            } else if (part.name === 'midPart') {
+                                midParts.push(part);
                             }
+                        });
+                        
+                        // Обновляем левую часть
+                        if (leftPart) {
+                            leftPart.setScale(this.platformTextureScale);
+                            leftPart.x = -width/2 + (leftWidth*this.platformTextureScale)/2;
+                        }
+                        
+                        // Обновляем правую часть
+                        if (rightPart) {
+                            rightPart.setScale(this.platformTextureScale);
+                            rightPart.x = width/2 - (rightWidth*this.platformTextureScale)/2;
+                        }
+                        
+                        // Обновляем средние части
+                        if (midParts.length > 0) {
+                            const scaledLeftWidth = leftWidth * this.platformTextureScale;
+                            const scaledRightWidth = rightWidth * this.platformTextureScale;
+                            const middleSpace = width - scaledLeftWidth - scaledRightWidth;
                             
-                            if (rightPart && rightPart.texture && rightPart.texture.key.includes('_right')) {
-                                rightPart.setScale(this.platformTextureScale);
-                                rightPart.x = width/2 - (rightWidth*this.platformTextureScale)/2;
-                            }
-                            
-                            // Если есть средние части, располагаем их равномерно между левой и правой
-                            if (parts.length > 2) {
-                                const midStartX = -width/2 + (leftWidth*this.platformTextureScale);
-                                const scaledMidWidth = midWidth * this.platformTextureScale;
+                            if (middleSpace > 0 && midParts.length === 1) {
+                                const midPart = midParts[0];
+                                const midPartX = -width/2 + scaledLeftWidth + middleSpace/2;
+                                const widthScale = middleSpace / (midWidth * this.platformTextureScale);
                                 
-                                for (let i = 1; i < parts.length - 1; i++) {
-                                    const midPart = parts[i];
-                                    if (midPart && midPart.texture && midPart.texture.key.includes('_mid')) {
-                                        midPart.setScale(this.platformTextureScale);
-                                        midPart.x = midStartX + scaledMidWidth/2 + (i-1) * scaledMidWidth;
-                                    }
-                                }
+                                midPart.x = midPartX;
+                                midPart.setScale(widthScale, this.platformTextureScale);
                             }
                         }
                     }
