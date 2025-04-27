@@ -1272,7 +1272,7 @@ class GameScene extends Phaser.Scene {
                 
                 // Первые платформы всегда нормальные
                 if (i < 3 && this.score < 200) {
-                    platformType = 'slippery';
+                    platformType = 'normal';
                     isMoving = false;
                 }
                 
