@@ -70,6 +70,17 @@ class PlayerAbilities {
         this.abilities.enhancedJump.effect();
     }
     
+    // Метод для обновления значения jumpStrength при изменении jumpVelocity
+    updateJumpStrength() {
+        // Обновляем базовое значение
+        this.player.jumpStrength = this.scene.jumpVelocity;
+        
+        // Применяем эффект усиленного прыжка, если он активен
+        if (this.abilities.enhancedJump.active) {
+            this.abilities.enhancedJump.effect();
+        }
+    }
+    
     // Проверка наличия платформы в пределах указанного расстояния снизу от игрока
     isPlatformNearby(distance = 15) {
         if (!this.player || !this.player.body) return false;

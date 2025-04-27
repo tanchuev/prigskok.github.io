@@ -83,44 +83,50 @@ class GameScene extends Phaser.Scene {
         this.itemSpawnChance = 0.25; // Вероятность появления предмета на платформе (25%)
         this.itemScale = 0.75; // Масштаб предметов
         
+        // Множители для комбинирования эффектов
+        this.jumpVelocityMultiplier = 1;
+        this.jumpCooldownMultiplier = 1;
+        this.playerSpeedMultiplier = 1;
+        
         // Типы бонусных предметов и их шансы появления
         this.itemTypes = {
             // Бонусы
             jump_boost: { 
-                chance: 15,
+                chance: 0,
                 duration: 5000, // 5 секунд
                 speedMultiplier: 2, // Множитель скорости прыжка
+                animationSpeedMultiplier: 2, // Множитель скорости анимации
                 type: 'bonus'
             },
             jump_height: { 
-                chance: 15,
+                chance: 18,
                 duration: 5000, // 5 секунд
-                heightMultiplier: 1.5, // Множитель высоты прыжка
+                heightMultiplier: 1.6, // Множитель высоты прыжка
                 type: 'bonus'
             },
             // Помехи для других игроков
             shockwave: { 
-                chance: 10,
-                radius: 200, // Радиус действия
-                force: 800, // Сила отталкивания
+                chance: 13,
+                radius: 1500, // Радиус действия
+                force: 1500, // Сила отталкивания
                 type: 'obstacle'
             },
             freeze: { 
-                chance: 10,
+                chance: 13,
                 duration: 3000, // 3 секунды
                 slowdownFactor: 0.4, // Коэффициент замедления
                 type: 'obstacle'
             },
             // Ловушки
             decrease_jump: { 
-                chance: 10,
+                chance: 13,
                 duration: 4000, // 4 секунды
-                heightMultiplier: 0.6, // Множитель высоты прыжка
+                heightMultiplier: 0.7, // Множитель высоты прыжка
                 type: 'trap'
             },
             knockback: { 
-                chance: 10,
-                force: 600, // Сила отброса
+                chance: 13,
+                force: 2000, // Сила отброса
                 type: 'trap'
             }
         };
@@ -154,6 +160,8 @@ class GameScene extends Phaser.Scene {
         this.platformXMin = 70;
         this.lastPlatformY = 600;
         this.jumpVelocity = -450;
+        this.jumpCooldown = 300; // Добавляем базовое значение кулдауна
+        this.moveSpeed = 200; // Базовая скорость персонажа
         this.lastGenerationTime = 0;
         this.initialPlayerY = 570;
         this.maxHeightReached = 0;
@@ -194,6 +202,11 @@ class GameScene extends Phaser.Scene {
         
         // Сбрасываем активные эффекты бонусов
         this.activeEffects = [];
+        
+        // Сбрасываем множители эффектов
+        this.jumpVelocityMultiplier = 1;
+        this.jumpCooldownMultiplier = 1;
+        this.playerSpeedMultiplier = 1;
     }
 
     preload() {
@@ -417,6 +430,11 @@ class GameScene extends Phaser.Scene {
             this.scene.pause();
             this.scene.launch('PauseScene', { gameScene: 'GameScene' });
         });
+        
+        // Инициализируем значения с учетом множителей
+        this.updateJumpVelocity();
+        this.updateJumpCooldown();
+        this.updatePlayerSpeed();
     }
 
     setupCollisions() {
@@ -607,7 +625,7 @@ class GameScene extends Phaser.Scene {
         }
         
         // Включаем отображение границ коллизий только для предметов
-        this.drawItemCollisionDebug();
+        // this.drawItemCollisionDebug();
     }
 
     drawDebugPlayerCollision() {
@@ -875,46 +893,21 @@ class GameScene extends Phaser.Scene {
     playerMovement() {
         if (!this.player || !this.player.body) return;
         
-        const moveSpeed = 200;
+        const isMoving = this.player.body.velocity.x !== 0;
         
-        let isMoving = false;
-        
-        const slowdownFactor = 0.9;
-        
-        // Если игрок на движущейся платформе - особое поведение
-        const onMovingPlatform = this.player.onPlatform && 
-                                this.player.currentPlatform && 
-                                this.player.currentPlatform.isMoving;
-        
-        // Определяем базовую скорость с учетом типа платформы
-        let effectiveMoveSpeed = moveSpeed;
-        
-        // Если игрок на липкой платформе, уменьшаем базовую скорость движения
-        if (this.player.isOnStickyPlatform) {
-            effectiveMoveSpeed = moveSpeed * this.stickySlowdownFactor;
-        }
-        
-        if (this.leftPressed) {
-            this.player.body.velocity.x = -effectiveMoveSpeed;
-            this.player.setFlipX(false);
-            isMoving = true;
-        } else if (this.rightPressed) {
-            this.player.body.velocity.x = effectiveMoveSpeed;
-            this.player.setFlipX(true);
-            isMoving = true;
-        } else {
-            // Если не на движущейся платформе, замедляем движение
-            if (!onMovingPlatform) {
-                if (this.player.isOnStickyPlatform) {
-                    // На липкой платформе скорость быстрее стремится к нулю
-                    this.player.body.velocity.x *= 0.5;
-                } else {
-                    this.player.body.velocity.x *= slowdownFactor;
-                }
-                
-                if (Math.abs(this.player.body.velocity.x) < 10) {
-                    this.player.body.velocity.x = 0;
-                }
+        // Проверяем, не находимся ли мы на липкой платформе
+        if (this.player.stuckOnPlatform) {
+            this.player.body.velocity.x = 0;
+        } else if (!this.player.knockbackActive) { // Добавляем проверку флага knockbackActive
+            // Горизонтальное движение
+            if (this.leftPressed) {
+                this.player.body.velocity.x = -this.moveSpeed;
+                this.player.setFlipX(false);
+            } else if (this.rightPressed) {
+                this.player.body.velocity.x = this.moveSpeed;
+                this.player.setFlipX(true);
+            } else {
+                this.player.body.velocity.x = 0;
             }
         }
         
@@ -938,6 +931,9 @@ class GameScene extends Phaser.Scene {
                         this.player.isOnStickyPlatform = false;
                         this.player.stuckOnPlatform = false;
                     }
+                    
+                    // Обновляем скорость анимации при прыжке
+                    this.updateAnimationSpeed();
                 }
             }
             
@@ -951,12 +947,17 @@ class GameScene extends Phaser.Scene {
         if (onGround && !isMoving) {
             if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'still') {
                 this.player.animationState.setAnimation(0, 'still', true);
+                // Применяем множитель скорости анимации
+                this.updateAnimationSpeed();
             }
         }
         else if (!onGround) {
             if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'idle') {
                 this.player.animationState.setAnimation(0, 'idle', true);
+                // Базовая скорость для прыжка
                 this.player.animationState.timeScale = 0.3;
+                // Применяем множитель скорости анимации
+                this.updateAnimationSpeed();
             }
         }
         else if (onGround && isMoving) {
@@ -966,6 +967,8 @@ class GameScene extends Phaser.Scene {
                 if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'still') {
                     this.player.animationState.setAnimation(0, 'still', true);
                     this.player.animationState.timeScale = 0.5;
+                    // Применяем множитель скорости анимации
+                    this.updateAnimationSpeed();
                 }
             } 
             else if (this.player.body.velocity.x > 0) {
@@ -974,6 +977,8 @@ class GameScene extends Phaser.Scene {
                 if (this.player.animationState.getCurrent(0) && this.player.animationState.getCurrent(0).animation.name !== 'still') {
                     this.player.animationState.setAnimation(0, 'still', true);
                     this.player.animationState.timeScale = 0.5;
+                    // Применяем множитель скорости анимации
+                    this.updateAnimationSpeed();
                 }
             }
         }
@@ -1910,14 +1915,11 @@ class GameScene extends Phaser.Scene {
         // Отменяем существующий таймер ускорения прыжков, если он есть
         this.removeEffect('jump_boost');
         
-        // Сохраняем исходное значение jumpCooldown
-        const originalJumpCooldown = this.jumpCooldown;
-        
         // Применяем эффект ускорения прыжков
-        this.jumpCooldown = this.jumpCooldown / itemData.speedMultiplier;
+        this.jumpCooldownMultiplier = this.jumpCooldownMultiplier / itemData.speedMultiplier;
         
-        // Добавляем визуальный эффект ускорения
-        this.player.setTint(0x00ffff);
+        // Обновляем реальное значение jumpCooldown
+        this.updateJumpCooldown();
         
         // Добавляем эффект в активные эффекты
         const effectId = 'jump_boost_' + Date.now();
@@ -1925,10 +1927,70 @@ class GameScene extends Phaser.Scene {
             id: effectId,
             type: 'jump_boost',
             name: 'Ускорение прыжков',
+            factor: itemData.speedMultiplier, // Сохраняем коэффициент эффекта
+            animationSpeedFactor: itemData.animationSpeedMultiplier, // Сохраняем коэффициент скорости анимации
             timer: this.time.delayedCall(itemData.duration, () => {
-                this.jumpCooldown = originalJumpCooldown;
-                this.player.clearTint();
+                // Удаляем эффект из активных
                 this.removeEffect(effectId);
+                
+                // Перерассчитываем множитель для всех оставшихся активных эффектов
+                this.recalculateJumpCooldownMultiplier();
+                
+                // Обновляем скорость анимации
+                this.updateAnimationSpeed();
+            }, [], this),
+            startTime: Date.now(),
+            duration: itemData.duration
+        };
+        
+        this.activeEffects.push(effect);
+        
+        // Добавляем визуальный индикатор эффекта
+        this.addEffectIcon(effect);
+        
+        // Обновляем скорость анимации
+        this.updateAnimationSpeed();
+    }
+    
+    recalculateJumpCooldownMultiplier() {
+        // Сбрасываем множитель к базовому значению
+        this.jumpCooldownMultiplier = 1.0;
+        
+        // Применяем множители от всех активных эффектов jump_boost
+        this.activeEffects.forEach(effect => {
+            if (effect.type === 'jump_boost' && effect.factor) {
+                // Применяем множитель обратно, как и в методе applyJumpBoost
+                this.jumpCooldownMultiplier = this.jumpCooldownMultiplier / effect.factor;
+            }
+        });
+        
+        // Обновляем значение cooldown
+        this.updateJumpCooldown();
+    }
+    
+    applyJumpHeight(itemData) {
+        // Отменяем существующий таймер увеличения высоты прыжка, если он есть
+        this.removeEffect('jump_height');
+        
+        // Применяем эффект увеличения высоты прыжка (умножаем текущий множитель)
+        this.jumpVelocityMultiplier = this.jumpVelocityMultiplier * itemData.heightMultiplier;
+        
+        // Обновляем реальное значение jumpVelocity
+        this.updateJumpVelocity();
+        
+        // Добавляем эффект в активные эффекты
+        const effectId = 'jump_height_' + Date.now();
+        const effect = {
+            id: effectId,
+            type: 'jump_height',
+            name: 'Увеличение высоты прыжков',
+            factor: itemData.heightMultiplier, // Сохраняем коэффициент эффекта
+            timer: this.time.delayedCall(itemData.duration, () => {
+                // Удаляем эффект из активных
+                this.removeEffect(effectId);
+                
+                // Пересчитываем множители для всех оставшихся активных эффектов
+                this.recalculateJumpVelocityMultiplier();
             }, [], this),
             startTime: Date.now(),
             duration: itemData.duration
@@ -1940,38 +2002,24 @@ class GameScene extends Phaser.Scene {
         this.addEffectIcon(effect);
     }
     
-    applyJumpHeight(itemData) {
-        // Отменяем существующий таймер увеличения высоты прыжка, если он есть
-        this.removeEffect('jump_height');
+    // Новый метод для перерасчета множителя скорости прыжка с учетом активных эффектов
+    recalculateJumpVelocityMultiplier() {
+        // Сбрасываем множитель к базовому значению
+        this.jumpVelocityMultiplier = 1.0;
         
-        // Сохраняем исходное значение jumpVelocity
-        const originalJumpVelocity = this.jumpVelocity;
+        // Применяем множители от всех активных эффектов jump_height и decrease_jump
+        this.activeEffects.forEach(effect => {
+            if (effect.type === 'jump_height' && effect.factor) {
+                // Применяем множитель, как в соответствующих методах
+                this.jumpVelocityMultiplier = this.jumpVelocityMultiplier * effect.factor;
+            } else if (effect.type === 'decrease_jump' && effect.factor) {
+                // Применяем множитель, как в соответствующих методах
+                this.jumpVelocityMultiplier = this.jumpVelocityMultiplier * effect.factor;
+            }
+        });
         
-        // Применяем эффект увеличения высоты прыжка
-        this.jumpVelocity = this.jumpVelocity * itemData.heightMultiplier;
-        
-        // Добавляем визуальный эффект
-        this.player.setTint(0x00ff00);
-        
-        // Добавляем эффект в активные эффекты
-        const effectId = 'jump_height_' + Date.now();
-        const effect = {
-            id: effectId,
-            type: 'jump_height',
-            name: 'Увеличение высоты прыжков',
-            timer: this.time.delayedCall(itemData.duration, () => {
-                this.jumpVelocity = originalJumpVelocity;
-                this.player.clearTint();
-                this.removeEffect(effectId);
-            }, [], this),
-            startTime: Date.now(),
-            duration: itemData.duration
-        };
-        
-        this.activeEffects.push(effect);
-        
-        // Добавляем визуальный индикатор эффекта
-        this.addEffectIcon(effect);
+        // Обновляем значение jumpVelocity
+        this.updateJumpVelocity();
     }
     
     applyShockwave(itemData) {
@@ -2013,8 +2061,12 @@ class GameScene extends Phaser.Scene {
     }
     
     applyFreeze(itemData) {
-        // TODO: Реализовать эффект замедления других игроков, когда они будут добавлены
-        // Для демонстрации создадим визуальный эффект
+        // Этот эффект должен влиять только на других игроков
+        // В многопользовательской игре здесь должна быть логика для других игроков
+        // Для одиночной реализации просто создаем визуальный эффект
+        
+        // НЕ ПРИМЕНЯЕМ замедление к текущему игроку
+        // Создаем визуальный эффект
         const freezeEffect = this.add.circle(this.player.x, this.player.y, 150, 0x00ffff, 0.3);
         freezeEffect.setDepth(40);
         
@@ -2028,7 +2080,7 @@ class GameScene extends Phaser.Scene {
             }
         });
         
-        // Визуальное оповещение о срабатывании эффекта (без таймера, т.к. эффект мгновенный)
+        // Визуальное оповещение о срабатывании эффекта
         this.showTemporaryMessage('Замедление соперников!', 0x00ffff);
     }
     
@@ -2036,14 +2088,11 @@ class GameScene extends Phaser.Scene {
         // Отменяем существующий таймер уменьшения высоты прыжка, если он есть
         this.removeEffect('decrease_jump');
         
-        // Сохраняем исходное значение jumpVelocity
-        const originalJumpVelocity = this.jumpVelocity;
+        // Применяем эффект уменьшения высоты прыжка (умножаем текущий множитель)
+        this.jumpVelocityMultiplier = this.jumpVelocityMultiplier * itemData.heightMultiplier;
         
-        // Применяем эффект уменьшения высоты прыжка
-        this.jumpVelocity = this.jumpVelocity * itemData.heightMultiplier;
-        
-        // Добавляем визуальный эффект
-        this.player.setTint(0xff0000);
+        // Обновляем реальное значение jumpVelocity
+        this.updateJumpVelocity();
         
         // Добавляем эффект в активные эффекты
         const effectId = 'decrease_jump_' + Date.now();
@@ -2051,10 +2100,13 @@ class GameScene extends Phaser.Scene {
             id: effectId,
             type: 'decrease_jump',
             name: 'Уменьшение высоты прыжков',
+            factor: itemData.heightMultiplier, // Сохраняем коэффициент эффекта
             timer: this.time.delayedCall(itemData.duration, () => {
-                this.jumpVelocity = originalJumpVelocity;
-                this.player.clearTint();
+                // Удаляем эффект из активных
                 this.removeEffect(effectId);
+                
+                // Перерассчитываем множитель для всех оставшихся активных эффектов
+                this.recalculateJumpVelocityMultiplier();
             }, [], this),
             startTime: Date.now(),
             duration: itemData.duration
@@ -2070,11 +2122,17 @@ class GameScene extends Phaser.Scene {
         // Определяем случайное направление отброса
         const direction = Math.random() < 0.5 ? -1 : 1;
         
-        // Применяем силу отброса
-        this.player.body.velocity.x = direction * itemData.force;
-        this.player.body.velocity.y = -itemData.force * 0.5; // Немного подбрасываем вверх
+        // Применяем силу отброса по горизонтали, увеличиваем силу для заметного эффекта
+        this.player.body.velocity.x = direction * itemData.force * 1.5;
         
-        // Вместо изменения цвета спрайта используем визуальный эффект (анимацию или эффект частиц)
+        // Устанавливаем флаг knockbackActive, чтобы предотвратить сброс скорости в playerMovement
+        this.player.knockbackActive = true;
+        
+        // Отключаем флаг через короткое время
+        this.time.delayedCall(500, () => {
+            this.player.knockbackActive = false;
+        });
+        
         // Создаем эффект частиц для визуализации отброса
         const particles = this.add.particles(this.player.x, this.player.y, 'item_knockback', {
             speed: 100,
@@ -2102,6 +2160,7 @@ class GameScene extends Phaser.Scene {
         
         if (index !== -1) {
             const effect = this.activeEffects[index];
+            console.log(`Удаление эффекта: ${effect.type} с ID ${effect.id}`);
             
             // Отменяем таймер, если он существует
             if (effect.timer) {
@@ -2113,7 +2172,19 @@ class GameScene extends Phaser.Scene {
             
             // Удаляем эффект из массива
             this.activeEffects.splice(index, 1);
+            
+            // Если был удален эффект jump_boost, обновляем скорость анимации
+            if (effect.type === 'jump_boost') {
+                this.updateAnimationSpeed();
+            }
+            
+            console.log(`Активные эффекты после удаления:`, 
+                this.activeEffects.map(e => `${e.type} (ID: ${e.id})`));
+            
+            return true;
         }
+        
+        return false;
     }
     
     updateActiveEffects() {
@@ -2308,5 +2379,80 @@ class GameScene extends Phaser.Scene {
                 this.itemDebugGraphics.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
             });
         }
+    }
+
+    // Методы для обновления характеристик персонажа при изменении множителей
+    updateJumpVelocity() {
+        // Базовое значение из init метода (-450)
+        const baseJumpVelocity = -450;
+        
+        // Для предотвращения накопления эффектов, всегда сбрасываем к базовому значению
+        // и применяем текущий множитель
+        this.jumpVelocity = baseJumpVelocity * this.jumpVelocityMultiplier;
+        
+        // Выводим отладочную информацию
+        this.debugEffectMultipliers();
+        
+        // Обновляем jumpStrength в PlayerAbilities
+        if (this.playerAbilities) {
+            this.playerAbilities.updateJumpStrength();
+        }
+    }
+
+    updateJumpCooldown() {
+        // Базовое значение кулдауна
+        const baseCooldown = 300;
+        
+        // Для предотвращения накопления эффектов, всегда сбрасываем к базовому значению
+        // и применяем текущий множитель
+        this.jumpCooldown = baseCooldown * this.jumpCooldownMultiplier;
+        
+        // Выводим отладочную информацию
+        this.debugEffectMultipliers();
+    }
+    
+    // Отладочный метод для проверки множителей
+    debugEffectMultipliers() {
+        console.log(`=== ТЕКУЩИЕ МНОЖИТЕЛИ ===`);
+        console.log(`Множитель высоты прыжка: ${this.jumpVelocityMultiplier.toFixed(2)}`);
+        console.log(`Множитель кулдауна прыжка: ${this.jumpCooldownMultiplier.toFixed(2)}`);
+        console.log(`Множитель скорости игрока: ${this.playerSpeedMultiplier.toFixed(2)}`);
+        console.log(`Прыжок: ${this.jumpVelocity}, Кулдаун: ${this.jumpCooldown}, Скорость: ${this.moveSpeed}`);
+        console.log(`Количество активных эффектов: ${this.activeEffects.length}`);
+        this.activeEffects.forEach(effect => {
+            console.log(`  - ${effect.type} (ID: ${effect.id}), множитель: ${effect.factor || 'нет'}`);
+        });
+        console.log(`=======================`);
+    }
+
+    updatePlayerSpeed() {
+        // Базовое значение скорости, определенное в init методе
+        const baseSpeed = 200;
+        
+        // Для предотвращения накопления эффектов, всегда сбрасываем к базовому значению
+        // и применяем текущий множитель
+        this.moveSpeed = baseSpeed * this.playerSpeedMultiplier;
+        
+        // Вывод в консоль для отладки (можно удалить в финальной версии)
+        console.log(`Обновление скорости игрока: ${this.moveSpeed} (множитель: ${this.playerSpeedMultiplier})`);
+    }
+
+    // Добавляем метод для обновления скорости анимации на основе активных эффектов
+    updateAnimationSpeed() {
+        if (!this.player || !this.player.animationState) return;
+        
+        // Получаем текущую базовую скорость анимации
+        let baseTimeScale = this.player.animationState.timeScale;
+        let animSpeedMultiplier = 1.0;
+        
+        // Проверяем все активные эффекты jump_boost
+        this.activeEffects.forEach(effect => {
+            if (effect.type === 'jump_boost' && effect.animationSpeedFactor) {
+                animSpeedMultiplier *= effect.animationSpeedFactor;
+            }
+        });
+        
+        // Применяем множитель к базовой скорости
+        this.player.animationState.timeScale = baseTimeScale * animSpeedMultiplier;
     }
 } 
