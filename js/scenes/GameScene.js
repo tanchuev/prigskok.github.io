@@ -78,6 +78,55 @@ class GameScene extends Phaser.Scene {
         
         // Добавляем коэффициент замедления для липкой платформы
         this.stickySlowdownFactor = 0.2;
+        
+        // Параметры для бонусных предметов
+        this.itemSpawnChance = 0.25; // Вероятность появления предмета на платформе (25%)
+        this.itemScale = 0.75; // Масштаб предметов
+        
+        // Типы бонусных предметов и их шансы появления
+        this.itemTypes = {
+            // Бонусы
+            jump_boost: { 
+                chance: 15,
+                duration: 5000, // 5 секунд
+                speedMultiplier: 2, // Множитель скорости прыжка
+                type: 'bonus'
+            },
+            jump_height: { 
+                chance: 15,
+                duration: 5000, // 5 секунд
+                heightMultiplier: 1.5, // Множитель высоты прыжка
+                type: 'bonus'
+            },
+            // Помехи для других игроков
+            shockwave: { 
+                chance: 10,
+                radius: 200, // Радиус действия
+                force: 800, // Сила отталкивания
+                type: 'obstacle'
+            },
+            freeze: { 
+                chance: 10,
+                duration: 3000, // 3 секунды
+                slowdownFactor: 0.4, // Коэффициент замедления
+                type: 'obstacle'
+            },
+            // Ловушки
+            decrease_jump: { 
+                chance: 10,
+                duration: 4000, // 4 секунды
+                heightMultiplier: 0.6, // Множитель высоты прыжка
+                type: 'trap'
+            },
+            knockback: { 
+                chance: 10,
+                force: 600, // Сила отброса
+                type: 'trap'
+            }
+        };
+        
+        // Активные эффекты бонусов
+        this.activeEffects = [];
     }
 
     init(data) {
@@ -142,6 +191,9 @@ class GameScene extends Phaser.Scene {
         this.horizontalMaxDistance = 300; // Увеличено до 300
         this.verticalMinDistance = 50;
         this.verticalMaxDistance = 300; // Увеличено до 150
+        
+        // Сбрасываем активные эффекты бонусов
+        this.activeEffects = [];
     }
 
     preload() {
@@ -159,6 +211,22 @@ class GameScene extends Phaser.Scene {
         this.load.audio('platform', 'assets/sounds/platform.mp3');
         this.load.audio('doubleJump', 'assets/sounds/doublejump.mp3');
         this.load.audio('splash', 'assets/sounds/splash.mp3');
+        
+        // Загрузка звуков для бонусных предметов
+        this.load.audio('item_jump_boost', 'assets/sounds/items/jump_boost.ogg');
+        this.load.audio('item_jump_height', 'assets/sounds/items/jump_height.ogg');
+        this.load.audio('item_shockwave', 'assets/sounds/items/shockwave.ogg');
+        this.load.audio('item_freeze', 'assets/sounds/items/freeze.ogg');
+        this.load.audio('item_decrease_jump', 'assets/sounds/items/decrease_jump.ogg');
+        this.load.audio('item_knockback', 'assets/sounds/items/knockback.ogg');
+        
+        // Загрузка изображений бонусных предметов
+        this.load.image('item_jump_boost', 'assets/images/items/jump_boost.png');
+        this.load.image('item_jump_height', 'assets/images/items/jump_height.png');
+        this.load.image('item_shockwave', 'assets/images/items/shockwave.png');
+        this.load.image('item_freeze', 'assets/images/items/freeze.png');
+        this.load.image('item_decrease_jump', 'assets/images/items/decrease_jump.png');
+        this.load.image('item_knockback', 'assets/images/items/knockback.png');
         
         // Загружаем текстуры платформ
         // Типы платформ: normal (default) - обычная, fragile - хрупкая, slippery - скользкая, 
@@ -202,6 +270,9 @@ class GameScene extends Phaser.Scene {
         
         // Группа для движущихся платформ (будет содержать платформы любого типа, которые движутся)
         this.movingPlatforms = this.physics.add.group();
+        
+        // Добавляем инициализацию группы для предметов как статическую группу
+        this.items = this.physics.add.staticGroup();
         
         // Объединенная группа всех платформ для коллизий
         this.allPlatforms = [
@@ -301,9 +372,22 @@ class GameScene extends Phaser.Scene {
         this.doubleJumpSound = this.sound.add('doubleJump');
         this.splashSound = this.sound.add('splash');
         
+        // Добавляем звуки для бонусных предметов
+        this.itemSounds = {
+            jump_boost: this.sound.add('item_jump_boost'),
+            jump_height: this.sound.add('item_jump_height'),
+            shockwave: this.sound.add('item_shockwave'),
+            freeze: this.sound.add('item_freeze'),
+            decrease_jump: this.sound.add('item_decrease_jump'),
+            knockback: this.sound.add('item_knockback')
+        };
+        
         this.createMobileControls();
         
         this.createUI();
+        
+        // Создаем интерфейс для отображения активных эффектов
+        this.createEffectsUI();
         
         this.playerAbilities.createAbilityIndicators();
 
@@ -342,6 +426,9 @@ class GameScene extends Phaser.Scene {
         this.physics.add.collider(this.player, this.vanishingPlatforms, this.playerHitPlatform, null, this);
         this.physics.add.collider(this.player, this.stickyPlatforms, this.playerHitPlatform, null, this);
         this.physics.add.collider(this.player, this.movingPlatforms, this.playerHitPlatform, null, this);
+        
+        // Коллизия с бонусными предметами
+        this.physics.add.overlap(this.player, this.items, this.playerCollectItem, null, this);
     }
 
     setupCamera() {
@@ -458,6 +545,16 @@ class GameScene extends Phaser.Scene {
                     }
                 });
             });
+            
+            // Очищаем предметы, которые оказались ниже порога очистки
+            this.items.getChildren().forEach(item => {
+                if (item.y > cleanupThreshold) {
+                    if (item.platform) {
+                        item.platform.item = null;
+                    }
+                    item.destroy();
+                }
+            });
         }
         
         // Сбрасываем состояние игрока перед обновлением
@@ -499,12 +596,18 @@ class GameScene extends Phaser.Scene {
         
         this.playerAbilities.updateAbilityIndicators();
         
+        // Обновляем активные эффекты бонусов
+        this.updateActiveEffects();
+        
         const onGround = this.player.body.touching.down;
         
         if (!onGround) {
             this.player.onPlatform = false;
             this.player.currentPlatform = null;
         }
+        
+        // Включаем отображение границ коллизий только для предметов
+        this.drawItemCollisionDebug();
     }
 
     drawDebugPlayerCollision() {
@@ -1456,11 +1559,20 @@ class GameScene extends Phaser.Scene {
         // Сохраняем ссылку на контейнер
         platform.container = platformContainer;
         
+        // Проверяем, нужно ли добавить бонусный предмет на платформу
+        // Не добавляем предметы на движущиеся, хрупкие или исчезающие платформы
+        if (!isMoving && type !== 'fragile' && type !== 'vanishing' && Math.random() < this.itemSpawnChance) {
+            this.createItem(platform);
+        }
+        
         // Переопределяем метод уничтожения для корректной очистки
         const originalDestroy = platform.destroy;
         platform.destroy = function() {
             if (this.container) {
                 this.container.destroy();
+            }
+            if (this.item) {
+                this.item.destroy();
             }
             originalDestroy.call(this);
         };
@@ -1654,6 +1766,547 @@ class GameScene extends Phaser.Scene {
         if (platformNearby) {
             this.jumpZoneDebugGraphics.fillStyle(0x00ff00, 0.3);
             this.jumpZoneDebugGraphics.fillRect(playerX, playerBottom, playerWidth, 15);
+        }
+    }
+
+    createItem(platform) {
+        // Если на платформе уже есть предмет, не создаем новый
+        if (platform.item) return;
+        
+        // Выбираем случайный тип предмета на основе шансов
+        const itemType = this.getRandomItemType();
+        if (!itemType) return;
+        
+        // Получаем размер текстуры предмета
+        const itemTexture = this.textures.get(`item_${itemType}`);
+        const itemHeight = itemTexture.getSourceImage().height * this.itemScale;
+        
+        // Создаем предмет
+        const x = platform.x;
+        const y = platform.y - (itemHeight / 2) + 10; // Учитываем половину высоты предмета
+        
+        const item = this.items.create(x, y, `item_${itemType}`);
+        item.setScale(this.itemScale);
+        item.setDepth(20); // Чтобы отображался над платформами
+        
+        // Фиксируем предмет в пространстве и уменьшаем зону коллизий
+        item.body.allowGravity = false;
+        item.body.immovable = true;
+        
+        // Уменьшаем размер коллизии до 30% от видимого размера
+        const texWidth = item.width * 0.3;
+        const texHeight = item.height * 0.3;
+        item.body.setSize(texWidth, texHeight);
+        item.body.setOffset((item.width - texWidth) / 2, (item.height - texHeight) / 2);
+        
+        // Добавляем анимацию "парения"
+        const hoverTween = this.tweens.add({
+            targets: item,
+            y: y - 7, // Небольшая амплитуда парения
+            duration: 1000, // Медленное плавное движение
+            ease: 'Sine.easeInOut',
+            yoyo: true,
+            repeat: -1
+        });
+        
+        // Добавляем свечение в зависимости от типа предмета
+        let tint;
+        if (this.itemTypes[itemType].type === 'bonus') {
+            tint = 0x00ff00; // Зеленый для бонусов
+        } else if (this.itemTypes[itemType].type === 'obstacle') {
+            tint = 0xffff00; // Желтый для помех
+        } else {
+            tint = 0xff0000; // Красный для ловушек
+        }
+        
+        // Добавляем тонкую рамку вместо мерцания
+        item.setTint(tint);
+        
+        // Привязываем предмет к платформе и сохраняем ссылки
+        platform.item = item;
+        item.platform = platform;
+        item.itemType = itemType;
+        item.itemData = this.itemTypes[itemType];
+        item.hoverTween = hoverTween; // Сохраняем ссылку на анимацию
+        
+        // Создаем границы коллизии для визуализации
+        if (!this.itemDebugGraphics) {
+            this.itemDebugGraphics = this.add.graphics();
+        }
+        
+        return item;
+    }
+
+    getRandomItemType() {
+        // Создаем массив шансов для каждого типа предмета
+        const items = [];
+        let totalChance = 0;
+        
+        // Собираем все типы предметов и их шансы
+        for (const [type, data] of Object.entries(this.itemTypes)) {
+            totalChance += data.chance;
+            items.push({ type, chance: data.chance });
+        }
+        
+        // Выбираем случайный предмет на основе шансов
+        let random = Math.random() * totalChance;
+        let currentChance = 0;
+        
+        for (const item of items) {
+            currentChance += item.chance;
+            if (random <= currentChance) {
+                return item.type;
+            }
+        }
+        
+        // В случае ошибки возвращаем первый тип предмета
+        return items.length > 0 ? items[0].type : null;
+    }
+
+    playerCollectItem(player, item) {
+        if (!item.active) return;
+        
+        // Получаем тип предмета и его данные
+        const itemType = item.itemType;
+        const itemData = item.itemData;
+        
+        // Воспроизводим звук
+        if (this.itemSounds[itemType]) {
+            this.itemSounds[itemType].play();
+        } else {
+            this.powerupSound.play();
+        }
+        
+        // Применяем эффект в зависимости от типа предмета
+        switch (itemType) {
+            case 'jump_boost':
+                this.applyJumpBoost(itemData);
+                break;
+            case 'jump_height':
+                this.applyJumpHeight(itemData);
+                break;
+            case 'shockwave':
+                this.applyShockwave(itemData);
+                break;
+            case 'freeze':
+                this.applyFreeze(itemData);
+                break;
+            case 'decrease_jump':
+                this.applyDecreaseJump(itemData);
+                break;
+            case 'knockback':
+                this.applyKnockback(itemData);
+                break;
+        }
+        
+        // Удаляем предмет
+        item.platform.item = null;
+        item.destroy();
+    }
+
+    // Методы для применения эффектов предметов
+    
+    applyJumpBoost(itemData) {
+        // Отменяем существующий таймер ускорения прыжков, если он есть
+        this.removeEffect('jump_boost');
+        
+        // Сохраняем исходное значение jumpCooldown
+        const originalJumpCooldown = this.jumpCooldown;
+        
+        // Применяем эффект ускорения прыжков
+        this.jumpCooldown = this.jumpCooldown / itemData.speedMultiplier;
+        
+        // Добавляем визуальный эффект ускорения
+        this.player.setTint(0x00ffff);
+        
+        // Добавляем эффект в активные эффекты
+        const effectId = 'jump_boost_' + Date.now();
+        const effect = {
+            id: effectId,
+            type: 'jump_boost',
+            name: 'Ускорение прыжков',
+            timer: this.time.delayedCall(itemData.duration, () => {
+                this.jumpCooldown = originalJumpCooldown;
+                this.player.clearTint();
+                this.removeEffect(effectId);
+            }, [], this),
+            startTime: Date.now(),
+            duration: itemData.duration
+        };
+        
+        this.activeEffects.push(effect);
+        
+        // Добавляем визуальный индикатор эффекта
+        this.addEffectIcon(effect);
+    }
+    
+    applyJumpHeight(itemData) {
+        // Отменяем существующий таймер увеличения высоты прыжка, если он есть
+        this.removeEffect('jump_height');
+        
+        // Сохраняем исходное значение jumpVelocity
+        const originalJumpVelocity = this.jumpVelocity;
+        
+        // Применяем эффект увеличения высоты прыжка
+        this.jumpVelocity = this.jumpVelocity * itemData.heightMultiplier;
+        
+        // Добавляем визуальный эффект
+        this.player.setTint(0x00ff00);
+        
+        // Добавляем эффект в активные эффекты
+        const effectId = 'jump_height_' + Date.now();
+        const effect = {
+            id: effectId,
+            type: 'jump_height',
+            name: 'Увеличение высоты прыжков',
+            timer: this.time.delayedCall(itemData.duration, () => {
+                this.jumpVelocity = originalJumpVelocity;
+                this.player.clearTint();
+                this.removeEffect(effectId);
+            }, [], this),
+            startTime: Date.now(),
+            duration: itemData.duration
+        };
+        
+        this.activeEffects.push(effect);
+        
+        // Добавляем визуальный индикатор эффекта
+        this.addEffectIcon(effect);
+    }
+    
+    applyShockwave(itemData) {
+        // Создаем визуальный эффект ударной волны
+        const shockwave = this.add.circle(this.player.x, this.player.y, 10, 0xffffff, 0.7);
+        shockwave.setDepth(50);
+        
+        // Анимируем расширение ударной волны
+        this.tweens.add({
+            targets: shockwave,
+            radius: itemData.radius,
+            alpha: 0,
+            duration: 500,
+            onComplete: () => {
+                shockwave.destroy();
+            }
+        });
+        
+        // TODO: Добавить отталкивание других игроков, когда они будут реализованы
+        // Для демонстрации создадим эффект на платформах рядом
+        this.allPlatforms.forEach(group => {
+            group.getChildren().forEach(platform => {
+                const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, platform.x, platform.y);
+                if (distance < itemData.radius && distance > 0) {
+                    // Слегка встряхиваем платформу для визуального эффекта
+                    this.tweens.add({
+                        targets: platform.container,
+                        y: platform.y + 10,
+                        duration: 100,
+                        yoyo: true,
+                        repeat: 2
+                    });
+                }
+            });
+        });
+        
+        // Визуальное оповещение о срабатывании эффекта (без таймера, т.к. эффект мгновенный)
+        this.showTemporaryMessage('Ударная волна!', 0xffff00);
+    }
+    
+    applyFreeze(itemData) {
+        // TODO: Реализовать эффект замедления других игроков, когда они будут добавлены
+        // Для демонстрации создадим визуальный эффект
+        const freezeEffect = this.add.circle(this.player.x, this.player.y, 150, 0x00ffff, 0.3);
+        freezeEffect.setDepth(40);
+        
+        // Анимируем эффект
+        this.tweens.add({
+            targets: freezeEffect,
+            alpha: 0,
+            duration: 1000,
+            onComplete: () => {
+                freezeEffect.destroy();
+            }
+        });
+        
+        // Визуальное оповещение о срабатывании эффекта (без таймера, т.к. эффект мгновенный)
+        this.showTemporaryMessage('Замедление соперников!', 0x00ffff);
+    }
+    
+    applyDecreaseJump(itemData) {
+        // Отменяем существующий таймер уменьшения высоты прыжка, если он есть
+        this.removeEffect('decrease_jump');
+        
+        // Сохраняем исходное значение jumpVelocity
+        const originalJumpVelocity = this.jumpVelocity;
+        
+        // Применяем эффект уменьшения высоты прыжка
+        this.jumpVelocity = this.jumpVelocity * itemData.heightMultiplier;
+        
+        // Добавляем визуальный эффект
+        this.player.setTint(0xff0000);
+        
+        // Добавляем эффект в активные эффекты
+        const effectId = 'decrease_jump_' + Date.now();
+        const effect = {
+            id: effectId,
+            type: 'decrease_jump',
+            name: 'Уменьшение высоты прыжков',
+            timer: this.time.delayedCall(itemData.duration, () => {
+                this.jumpVelocity = originalJumpVelocity;
+                this.player.clearTint();
+                this.removeEffect(effectId);
+            }, [], this),
+            startTime: Date.now(),
+            duration: itemData.duration
+        };
+        
+        this.activeEffects.push(effect);
+        
+        // Добавляем визуальный индикатор эффекта
+        this.addEffectIcon(effect);
+    }
+    
+    applyKnockback(itemData) {
+        // Определяем случайное направление отброса
+        const direction = Math.random() < 0.5 ? -1 : 1;
+        
+        // Применяем силу отброса
+        this.player.body.velocity.x = direction * itemData.force;
+        this.player.body.velocity.y = -itemData.force * 0.5; // Немного подбрасываем вверх
+        
+        // Вместо изменения цвета спрайта используем визуальный эффект (анимацию или эффект частиц)
+        // Создаем эффект частиц для визуализации отброса
+        const particles = this.add.particles(this.player.x, this.player.y, 'item_knockback', {
+            speed: 100,
+            scale: { start: 0.2, end: 0 },
+            quantity: 10,
+            lifespan: 500,
+            alpha: { start: 0.8, end: 0 },
+            blendMode: 'ADD'
+        });
+        
+        // Уничтожаем эффект через время
+        this.time.delayedCall(500, () => {
+            particles.destroy();
+        });
+        
+        // Визуальное оповещение о срабатывании эффекта (без таймера, т.к. эффект мгновенный)
+        this.showTemporaryMessage('Отброс!', 0xff6600);
+    }
+    
+    removeEffect(typeOrId) {
+        // Находим эффект по типу или идентификатору
+        const index = this.activeEffects.findIndex(effect => 
+            effect.type === typeOrId || effect.id === typeOrId
+        );
+        
+        if (index !== -1) {
+            const effect = this.activeEffects[index];
+            
+            // Отменяем таймер, если он существует
+            if (effect.timer) {
+                effect.timer.remove();
+            }
+            
+            // Удаляем визуальное отображение эффекта
+            this.removeEffectIcon(effect);
+            
+            // Удаляем эффект из массива
+            this.activeEffects.splice(index, 1);
+        }
+    }
+    
+    updateActiveEffects() {
+        // Обновляем индикацию активных эффектов
+        for (const effect of this.activeEffects) {
+            this.updateEffectTimer(effect);
+        }
+    }
+    
+    addEffectIcon(effect) {
+        // Если уже есть иконка этого эффекта, удаляем её
+        if (this.effectsUI[effect.id]) {
+            this.removeEffectIcon(effect);
+        }
+        
+        // Создаем контейнер для эффекта
+        const effectContainer = this.add.container(0, 0);
+        
+        // Определяем цвет фона в зависимости от типа эффекта
+        let bgColor;
+        if (effect.type.includes('jump_boost') || effect.type.includes('jump_height')) {
+            bgColor = 0x00ff00; // Зеленый для положительных эффектов
+        } else if (effect.type.includes('decrease_jump')) {
+            bgColor = 0xff0000; // Красный для негативных эффектов
+        } else {
+            bgColor = 0xffff00; // Желтый для других эффектов
+        }
+        
+        // Создаем фон для иконки
+        const iconBg = this.add.rectangle(0, 0, 40, 40, bgColor, 0.6).setOrigin(0);
+        effectContainer.add(iconBg);
+        
+        // Создаем иконку эффекта
+        const iconKey = `item_${effect.type.split('_')[0]}_${effect.type.split('_')[1]}`;
+        const icon = this.add.image(20, 20, iconKey).setOrigin(0.5);
+        icon.setScale(0.4);
+        effectContainer.add(icon);
+        
+        // Добавляем индикатор оставшегося времени
+        const timerText = this.add.text(20, 40, this.formatTime(effect.duration), {
+            fontFamily: 'unutterable',
+            fontSize: '12px',
+            color: '#FFFFFF',
+            align: 'center'
+        }).setOrigin(0.5, 0);
+        effectContainer.add(timerText);
+        
+        // Добавляем название эффекта
+        const nameText = this.add.text(45, 20, effect.name, {
+            fontFamily: 'unutterable',
+            fontSize: '12px',
+            color: '#FFFFFF',
+            align: 'left'
+        }).setOrigin(0, 0.5);
+        effectContainer.add(nameText);
+        
+        // Позиционируем в зависимости от количества активных эффектов
+        const existingEffects = Object.keys(this.effectsUI).length;
+        effectContainer.x = (existingEffects % 2) * 200;
+        effectContainer.y = Math.floor(existingEffects / 2) * 50;
+        
+        // Добавляем в контейнер эффектов
+        this.effectsIconsContainer.add(effectContainer);
+        
+        // Сохраняем ссылку на контейнер и элементы для обновления таймера
+        this.effectsUI[effect.id] = {
+            container: effectContainer,
+            timerText: timerText
+        };
+    }
+    
+    removeEffectIcon(effect) {
+        if (this.effectsUI[effect.id]) {
+            // Удаляем контейнер с иконкой
+            this.effectsUI[effect.id].container.destroy();
+            
+            // Удаляем ссылку на элементы
+            delete this.effectsUI[effect.id];
+            
+            // Перепозиционируем оставшиеся эффекты
+            this.repositionEffectIcons();
+        }
+    }
+    
+    updateEffectTimer(effect) {
+        if (this.effectsUI[effect.id]) {
+            const remainingTime = effect.duration - (Date.now() - effect.startTime);
+            
+            if (remainingTime > 0) {
+                // Обновляем текст таймера
+                this.effectsUI[effect.id].timerText.setText(this.formatTime(remainingTime));
+            } else {
+                // Если время истекло, но эффект еще не удален
+                this.effectsUI[effect.id].timerText.setText('0.0');
+            }
+        }
+    }
+    
+    repositionEffectIcons() {
+        // Перепозиционируем иконки эффектов
+        const effectIds = Object.keys(this.effectsUI);
+        
+        effectIds.forEach((id, index) => {
+            const container = this.effectsUI[id].container;
+            container.x = (index % 2) * 200;
+            container.y = Math.floor(index / 2) * 50;
+        });
+    }
+    
+    formatTime(ms) {
+        // Форматируем время в секундах с одним знаком после запятой
+        return (ms / 1000).toFixed(1);
+    }
+    
+    showTemporaryMessage(message, color = 0xffffff) {
+        // Создаем текстовое сообщение для мгновенных эффектов
+        const text = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 100, message, {
+            fontFamily: 'unutterable',
+            fontSize: '24px',
+            color: this.rgbToHex(color),
+            align: 'center',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5);
+        text.setScrollFactor(0);
+        text.setDepth(200);
+        
+        // Анимируем появление и исчезновение
+        this.tweens.add({
+            targets: text,
+            alpha: { from: 0, to: 1 },
+            y: { from: this.cameras.main.centerY - 50, to: this.cameras.main.centerY - 150 },
+            duration: 500,
+            ease: 'Back.easeOut',
+            onComplete: () => {
+                this.tweens.add({
+                    targets: text,
+                    alpha: 0,
+                    duration: 500,
+                    delay: 500,
+                    onComplete: () => {
+                        text.destroy();
+                    }
+                });
+            }
+        });
+    }
+    
+    rgbToHex(color) {
+        // Конвертирует числовое представление цвета в строку "#RRGGBB"
+        const r = (color >> 16) & 0xFF;
+        const g = (color >> 8) & 0xFF;
+        const b = color & 0xFF;
+        return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    }
+
+    createEffectsUI() {
+        // Создаем контейнер для отображения активных эффектов
+        this.effectsContainer = this.add.container(150, 50);
+        this.effectsContainer.setScrollFactor(0);
+        this.effectsContainer.setDepth(200);
+        
+        // Заголовок секции эффектов
+        const effectsTitle = this.add.text(0, 0, 'Активные эффекты:', {
+            fontFamily: 'unutterable',
+            fontSize: '16px',
+            color: '#FFFFFF',
+            align: 'left'
+        });
+        this.effectsContainer.add(effectsTitle);
+        
+        // Контейнер для иконок эффектов
+        this.effectsIconsContainer = this.add.container(0, 25);
+        this.effectsContainer.add(this.effectsIconsContainer);
+        
+        // Объект для хранения и отслеживания визуальных эффектов на экране
+        this.effectsUI = {};
+    }
+
+    // Добавляем новый метод для отображения границ коллизий предметов
+    drawItemCollisionDebug() {
+        if (!this.itemDebugGraphics) {
+            this.itemDebugGraphics = this.add.graphics();
+        }
+        
+        this.itemDebugGraphics.clear();
+        this.itemDebugGraphics.lineStyle(2, 0xffff00);
+        
+        if (this.items) {
+            this.items.getChildren().forEach(item => {
+                const bounds = item.getBounds();
+                this.itemDebugGraphics.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+            });
         }
     }
 } 
