@@ -102,7 +102,7 @@ class GameScene extends Phaser.Scene {
                 type: 'obstacle'
             },
             freeze: { 
-                chance: 13,
+                chance: 0,
                 duration: 3000, // 3 секунды
                 slowdownFactor: 0.4, // Коэффициент замедления
                 type: 'obstacle'
@@ -117,6 +117,14 @@ class GameScene extends Phaser.Scene {
             knockback: { 
                 chance: 13,
                 force: 1000, // Сила отброса
+                type: 'trap'
+            },
+            fade: {
+                chance: 13,
+                duration: 10000, // 10 секунд
+                minAlpha: 0.0, // Минимальная прозрачность
+                maxAlpha: 0.1, // Максимальная прозрачность
+                fadeSpeed: 1000, // Скорость мерцания в мс
                 type: 'trap'
             }
         };
@@ -242,6 +250,7 @@ class GameScene extends Phaser.Scene {
         this.load.audio('item_freeze', 'assets/sounds/items/freeze.ogg');
         this.load.audio('item_decrease_jump', 'assets/sounds/items/decrease_jump.ogg');
         this.load.audio('item_knockback', 'assets/sounds/items/knockback.ogg');
+        this.load.audio('item_fade', 'assets/sounds/items/fade.mp3');
         
         // Загрузка изображений бонусных предметов
         this.load.image('item_jump_boost', 'assets/images/items/jump_boost.png');
@@ -250,6 +259,7 @@ class GameScene extends Phaser.Scene {
         this.load.image('item_freeze', 'assets/images/items/freeze.png');
         this.load.image('item_decrease_jump', 'assets/images/items/decrease_jump.png');
         this.load.image('item_knockback', 'assets/images/items/knockback.png');
+        this.load.image('item_fade', 'assets/images/items/fade.png');
         
         // Загружаем текстуры платформ
         // Типы платформ: normal (default) - обычная, fragile - хрупкая, slippery - скользкая, 
@@ -402,7 +412,8 @@ class GameScene extends Phaser.Scene {
             shockwave: this.sound.add('item_shockwave'),
             freeze: this.sound.add('item_freeze'),
             decrease_jump: this.sound.add('item_decrease_jump'),
-            knockback: this.sound.add('item_knockback')
+            knockback: this.sound.add('item_knockback'),
+            fade: this.sound.add('item_fade')
         };
         
         this.createMobileControls();
@@ -2248,6 +2259,9 @@ class GameScene extends Phaser.Scene {
             case 'knockback':
                 this.applyKnockback(itemData);
                 break;
+            case 'fade':
+                this.applyFade(itemData);
+                break;
         }
         
         // Удаляем свечение, если оно есть
@@ -2613,6 +2627,76 @@ class GameScene extends Phaser.Scene {
         
         // Визуальное оповещение о срабатывании эффекта (без таймера, т.к. эффект мгновенный)
         this.showTemporaryMessage('Отброс!', 0xff6600);
+    }
+    
+    applyFade(itemData) {
+        // Проверяем, есть ли активный эффект этого типа
+        const existingEffect = this.activeEffects.find(effect => effect.type === 'fade');
+        
+        if (existingEffect) {
+            // Продлеваем время действия эффекта
+            if (existingEffect.timer) {
+                existingEffect.timer.remove();
+            }
+            
+            // Обновляем время начала и таймер эффекта
+            existingEffect.startTime = Date.now();
+            existingEffect.timer = this.time.delayedCall(itemData.duration, () => {
+                // Удаляем эффект из активных
+                this.removeEffect(existingEffect.id);
+                
+                // Восстанавливаем прозрачность персонажа
+                this.player.skeleton.color.a = 1.0;
+                
+                // Останавливаем твин мерцания, если он существует
+                if (existingEffect.fadeTween && existingEffect.fadeTween.isPlaying) {
+                    existingEffect.fadeTween.stop();
+                }
+            }, [], this);
+            
+            // Обновляем таймер отображения
+            this.updateEffectTimer(existingEffect);
+        } else {
+            // Добавляем эффект в активные эффекты
+            const effectId = 'fade_' + Date.now();
+            const effect = {
+                id: effectId,
+                type: 'fade',
+                name: 'Невидимость',
+                startTime: Date.now(),
+                duration: itemData.duration,
+                timer: this.time.delayedCall(itemData.duration, () => {
+                    // Удаляем эффект из активных
+                    this.removeEffect(effectId);
+                    
+                    // Восстанавливаем прозрачность персонажа
+                    this.player.skeleton.color.a = 1.0;
+                    
+                    // Останавливаем твин мерцания, если он существует
+                    if (effect.fadeTween && effect.fadeTween.isPlaying) {
+                        effect.fadeTween.stop();
+                    }
+                }, [], this)
+            };
+            
+            // Создаем твин для мерцания персонажа используя свойство color.a для Spine-объекта
+            effect.fadeTween = this.tweens.add({
+                targets: this.player.skeleton.color,
+                a: { from: itemData.maxAlpha, to: itemData.minAlpha },
+                duration: itemData.fadeSpeed,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+            
+            this.activeEffects.push(effect);
+            
+            // Добавляем визуальный индикатор эффекта
+            this.addEffectIcon(effect);
+            
+            // Показываем сообщение о применении эффекта
+            this.showTemporaryMessage('Невидимость!', 0xdddddd);
+        }
     }
     
     removeEffect(typeOrId) {
