@@ -541,7 +541,7 @@ class GameScene extends Phaser.Scene {
         // Удаление платформ, которые находятся ниже игрока на 1500 единиц
         this.allPlatforms.forEach(group => {
             group.getChildren().forEach(platform => {
-                if (platform.y > this.player.y + 1500) {
+                if (platform.y > this.player.y + 800) {
                     if (platform.item) {
                         if (platform.item.glow && platform.item.glow.active) {
                             platform.item.glow.destroy();
@@ -561,13 +561,17 @@ class GameScene extends Phaser.Scene {
             this.drawJumpZoneDebug();
         }
         
+        // Проверяем клавиатурный ввод (на десктопе)
         if (this.cursors.left.isDown) {
             this.leftPressed = true;
             this.rightPressed = false;
         } else if (this.cursors.right.isDown) {
             this.rightPressed = true;
             this.leftPressed = false;
-        } else {
+        }
+        // Не сбрасываем значения, если джойстик активен на мобильных устройствах
+        else if (!this.joystick || !this.joystick.active) {
+            // Только сбрасываем, если джойстик не активен
             this.leftPressed = false;
             this.rightPressed = false;
         }
@@ -575,6 +579,9 @@ class GameScene extends Phaser.Scene {
         if (this.spaceKey && this.spaceKey.isDown) {
             this.jumpPressed = true;
         }
+        
+        // Применяем движение персонажа
+        this.playerMovement();
         
         const cameraTargetY = Math.round(this.player.y) - 600;
         
@@ -634,7 +641,7 @@ class GameScene extends Phaser.Scene {
         if (cleanupCheckpoint > this.lastCleanupCheckpoint) {
             this.lastCleanupCheckpoint = cleanupCheckpoint;
             
-            const cleanupThreshold = this.cameras.main.scrollY + 1500;
+            const cleanupThreshold = this.cameras.main.scrollY + 800;
             
             this.allPlatforms.forEach(group => {
                 group.getChildren().forEach(platform => {
@@ -1102,42 +1109,121 @@ class GameScene extends Phaser.Scene {
 
     createMobileControls() {
         if (!this.sys.game.device.os.desktop) {
-            const leftZone = this.add.zone(150, 850, 250, 800);
-            leftZone.setScrollFactor(0);
-            leftZone.setInteractive();
-            leftZone.on('pointerdown', () => {
-                this.leftPressed = true;
-            });
-            leftZone.on('pointerup', () => {
-                this.leftPressed = false;
-            });
+            // Создаем контейнер для элементов управления, чтобы они оставались на одном уровне z-index
+            this.controlsContainer = this.add.container(0, 0);
+            this.controlsContainer.setDepth(1000);
             
-            const rightZone = this.add.zone(650, 850, 250, 800);
-            rightZone.setScrollFactor(0);
-            rightZone.setInteractive();
-            rightZone.on('pointerdown', () => {
-                this.rightPressed = true;
-            });
-            rightZone.on('pointerup', () => {
-                this.rightPressed = false;
-            });
+            // Настройки джойстика - поднимаем выше на экране
+            const joystickX = 150;
+            const joystickY = 900; // Опускаем с 800 до 900
+            const joystickRadius = 80;
             
-            const jumpButton = this.add.circle(700, 1100, 60, 0x4de9e7, 0.7);
-            jumpButton.setScrollFactor(0);
-            jumpButton.setInteractive();
-            jumpButton.on('pointerdown', () => {
-                this.jumpPressed = true;
-            });
-            jumpButton.on('pointerup', () => {
-                this.jumpPressed = false;
-            });
+            // Создаем базу джойстика (неподвижная часть)
+            const joystickBase = this.add.circle(joystickX, joystickY, joystickRadius, 0x4de9e7, 0.5);
+            joystickBase.setScrollFactor(0);
             
-            const jumpText = this.add.text(700, 1100, "П", {
+            // Создаем ручку джойстика (подвижная часть)
+            this.joystickThumb = this.add.circle(joystickX, joystickY, joystickRadius/2, 0x4de9e7, 0.7);
+            this.joystickThumb.setScrollFactor(0);
+            
+            // Кольцо вокруг базы джойстика
+            const joystickRing = this.add.graphics();
+            joystickRing.lineStyle(3, 0xffffff, 0.5);
+            joystickRing.strokeCircle(joystickX, joystickY, joystickRadius + 3);
+            joystickRing.setScrollFactor(0);
+            
+            // Настройки кнопки прыжка - поднимаем выше на экране
+            const jumpButtonX = 700;
+            const jumpButtonY = 900; // Опускаем с 800 до 900
+            const jumpButtonRadius = 70;
+            
+            // Создаем кнопку прыжка в том же стиле
+            const jumpButtonBase = this.add.circle(jumpButtonX, jumpButtonY, jumpButtonRadius, 0x4de9e7, 0.5);
+            jumpButtonBase.setScrollFactor(0);
+            jumpButtonBase.setInteractive();
+            
+            // Кольцо вокруг кнопки прыжка
+            const jumpButtonRing = this.add.graphics();
+            jumpButtonRing.lineStyle(3, 0xffffff, 0.5);
+            jumpButtonRing.strokeCircle(jumpButtonX, jumpButtonY, jumpButtonRadius + 3);
+            jumpButtonRing.setScrollFactor(0);
+            
+            // Добавляем текст на кнопку прыжка
+            const jumpText = this.add.text(jumpButtonX, jumpButtonY, "П", {
                 fontFamily: 'unutterable',
                 fontSize: '48px',
                 fill: '#fff'
             }).setOrigin(0.5);
             jumpText.setScrollFactor(0);
+            
+            // Добавляем все элементы в контейнер
+            this.controlsContainer.add([joystickBase, this.joystickThumb, joystickRing, jumpButtonBase, jumpButtonRing, jumpText]);
+            
+            // Создаем интерактивную зону для джойстика и делаем ее больше
+            const joystickZone = this.add.zone(joystickX, joystickY, joystickRadius * 3, joystickRadius * 3);
+            joystickZone.setScrollFactor(0);
+            joystickZone.setInteractive();
+            joystickZone.input.cursor = 'pointer';
+            
+            // Настраиваем режим ввода для поддержки мультитача
+            this.input.addPointer(2); // Добавляем еще указатели (всего 3 - по умолчанию 1)
+            
+            // Переменные для хранения состояния джойстика
+            this.joystick = {
+                active: false,
+                baseX: joystickX,
+                baseY: joystickY,
+                thumbX: joystickX,
+                thumbY: joystickY,
+                radius: joystickRadius,
+                pointerID: null
+            };
+            
+            // Обработчики событий для джойстика
+            joystickZone.on('pointerdown', (pointer) => {
+                this.joystick.active = true;
+                this.joystick.pointerID = pointer.id;
+                this.updateJoystickThumb(pointer.x, pointer.y);
+            });
+            
+            // Обрабатываем движение пальца в любой точке экрана
+            this.input.on('pointermove', (pointer) => {
+                if (this.joystick.active && this.joystick.pointerID === pointer.id) {
+                    this.updateJoystickThumb(pointer.x, pointer.y);
+                }
+            });
+            
+            // Только при отпускании пальца от экрана деактивируем джойстик
+            this.input.on('pointerup', (pointer) => {
+                if (this.joystick.active && this.joystick.pointerID === pointer.id) {
+                    this.joystick.active = false;
+                    this.joystick.pointerID = null;
+                    // Возвращаем ручку джойстика в центр
+                    this.joystickThumb.x = this.joystick.baseX;
+                    this.joystickThumb.y = this.joystick.baseY;
+                    // Сбрасываем движение
+                    this.leftPressed = false;
+                    this.rightPressed = false;
+                }
+            });
+            
+            // Удаляем обработчик pointerout - джойстик должен оставаться активным даже если палец вышел за пределы зоны
+            
+            // Обработчики событий для кнопки прыжка (с поддержкой мультитач)
+            jumpButtonBase.on('pointerdown', (pointer) => {
+                this.jumpPressed = true;
+                pointer.event.stopPropagation(); // Останавливаем распространение события
+            });
+            
+            jumpButtonBase.on('pointerup', (pointer) => {
+                this.jumpPressed = false;
+                pointer.event.stopPropagation();
+            });
+            
+            jumpButtonBase.on('pointerout', (pointer) => {
+                this.jumpPressed = false;
+                pointer.event.stopPropagation();
+            });
         } else {
             this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
             
@@ -1159,6 +1245,38 @@ class GameScene extends Phaser.Scene {
                     this.jumpZoneDebugGraphics.clear();
                 }
             });
+        }
+    }
+    
+    // Добавляем новый метод для обновления положения ручки джойстика
+    updateJoystickThumb(pointerX, pointerY) {
+        // Вычисляем расстояние от центра джойстика до указателя
+        const dx = pointerX - this.joystick.baseX;
+        const dy = pointerY - this.joystick.baseY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Если расстояние больше радиуса, ограничиваем позицию ручки
+        if (distance > this.joystick.radius) {
+            const angle = Math.atan2(dy, dx);
+            this.joystickThumb.x = this.joystick.baseX + Math.cos(angle) * this.joystick.radius;
+            this.joystickThumb.y = this.joystick.baseY + Math.sin(angle) * this.joystick.radius;
+        } else {
+            this.joystickThumb.x = pointerX;
+            this.joystickThumb.y = pointerY;
+        }
+        
+        // Обновляем состояние движения в зависимости от положения ручки
+        const horizontalMovement = this.joystickThumb.x - this.joystick.baseX;
+        
+        if (horizontalMovement < -10) {
+            this.leftPressed = true;
+            this.rightPressed = false;
+        } else if (horizontalMovement > 10) {
+            this.leftPressed = false;
+            this.rightPressed = true;
+        } else {
+            this.leftPressed = false;
+            this.rightPressed = false;
         }
     }
 
