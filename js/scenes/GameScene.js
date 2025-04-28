@@ -693,6 +693,34 @@ class GameScene extends Phaser.Scene {
             }
         });
         
+        // Проверка движущихся хрупких платформ
+        this.movingPlatforms.getChildren().forEach(platform => {
+            if (platform.type === 'fragile' && platform.fragileActivated && !platform.breaking) {
+                if (!this.player.onPlatform || this.player.currentPlatform !== platform) {
+                    // Определяем расстояние по Y между игроком и последней известной позицией
+                    const distanceY = Math.abs(this.player.y - platform.lastPlayerY);
+                    
+                    // Если игрок отпрыгнул более чем на 20 единиц, запускаем исчезновение платформы
+                    if (distanceY > 20) {
+                        platform.breaking = true;
+                        this.tweens.add({
+                            targets: platform.container,
+                            alpha: 0,
+                            y: platform.container.y + 20,
+                            duration: 300,
+                            ease: 'Power2',
+                            onComplete: () => {
+                                platform.destroy();
+                            }
+                        });
+                    }
+                } else {
+                    // Обновляем позицию игрока, если он стоит на платформе
+                    platform.lastPlayerY = this.player.y;
+                }
+            }
+        });
+        
         // Обновляем движущиеся платформы перед перемещением игрока
         this.movingPlatforms.getChildren().forEach(platform => {
             this.updateMovingPlatform(platform, delta);
@@ -702,6 +730,29 @@ class GameScene extends Phaser.Scene {
         this.allPlatforms.forEach(group => {
             this.physics.collide(this.player, group, this.playerHitPlatform, null, this);
         });
+        
+        // Проверка активации эффектов при близком прыжке (для всех платформ)
+        if (this.player.body.velocity.y > 0) {
+            // Проверяем обычные платформы
+            this.allPlatforms.forEach(group => {
+                group.getChildren().forEach(platform => {
+                    // Не проверяем платформы, которые уже активировали свой эффект
+                    if (platform.type === 'fragile' && platform.fragileActivated) return;
+                    if (platform.type === 'vanishing' && platform.vanishing) return;
+                    
+                    this.activatePlatformEffectFromNearbyJump(this.player, platform);
+                });
+            });
+            
+            // Проверяем движущиеся платформы отдельно, так как они в другой группе
+            this.movingPlatforms.getChildren().forEach(platform => {
+                // Не проверяем платформы, которые уже активировали свой эффект
+                if (platform.type === 'fragile' && platform.fragileActivated) return;
+                if (platform.type === 'vanishing' && platform.vanishing) return;
+                
+                this.activatePlatformEffectFromNearbyJump(this.player, platform);
+            });
+        }
         
         // Если игрок стоит на движущейся платформе, перемещаем его вместе с ней
         if (this.player.onPlatform && this.player.currentPlatform && this.player.currentPlatform.isMoving) {
@@ -807,81 +858,71 @@ class GameScene extends Phaser.Scene {
                 }
             }
             
-            switch (platform.type) {
-                case 'fragile':
-                    // Помечаем хрупкую платформу как активированную, но не запускаем таймер
-                    // Она будет существовать, пока игрок стоит на ней или близко к ней
-                    if (!platform.fragileActivated) {
-                        platform.fragileActivated = true;
-                        platform.lastPlayerY = player.y;
-                    }
-                    break;
+            // Обрабатываем эффекты для всех типов платформ, включая движущиеся
+            if (platform.type === 'fragile') {
+                // Помечаем хрупкую платформу как активированную
+                if (!platform.fragileActivated) {
+                    platform.fragileActivated = true;
+                    platform.lastPlayerY = player.y;
+                }
+            } else if (platform.type === 'slippery') {
+                player.isOnSlipperyPlatform = true;
                 
-                case 'slippery':
-                    player.isOnSlipperyPlatform = true;
+                // Применяем скорость напрямую для немедленного эффекта скольжения
+                if (this.leftPressed) {
+                    player.body.velocity.x = -this.moveSpeed * 1.5;
+                    this.lastDirection = -1; 
+                } else if (this.rightPressed) {
+                    player.body.velocity.x = this.moveSpeed * 1.5;
+                    this.lastDirection = 1; 
+                } else {
+                    // Если нет нажатий, сразу добавляем скольжение в последнем направлении
+                    player.body.velocity.x = this.lastDirection * 150;
+                }
+                
+                console.log('Скользкая платформа: скорость = ' + player.body.velocity.x);
+            } else if (platform.type === 'vanishing') {
+                if (!platform.vanishing) {
+                    platform.vanishing = true;
                     
-                    // Применяем скорость напрямую для немедленного эффекта скольжения
-                    if (this.leftPressed) {
-                        player.body.velocity.x = -this.moveSpeed * 1.5;
-                        this.lastDirection = -1; 
-                    } else if (this.rightPressed) {
-                        player.body.velocity.x = this.moveSpeed * 1.5;
-                        this.lastDirection = 1; 
-                    } else {
-                        // Если нет нажатий, сразу добавляем скольжение в последнем направлении
-                        player.body.velocity.x = this.lastDirection * 150;
-                    }
+                    const blinkTween = this.tweens.add({
+                        targets: platform.container,
+                        alpha: 0.2,
+                        yoyo: true,
+                        repeat: 2,
+                        duration: 100,
+                        onComplete: () => {
+                            this.tweens.add({
+                                targets: platform.container,
+                                alpha: 0,
+                                duration: 150,
+                                onComplete: () => {
+                                    platform.destroy();
+                                }
+                            });
+                        }
+                    });
+                }
+            } else if (platform.type === 'sticky') {
+                // Устанавливаем флаг, что игрок на липкой платформе
+                player.isOnStickyPlatform = true;
+                
+                if (!player.stuckOnPlatform) {
+                    player.stuckOnPlatform = true;
                     
-                    console.log('Скользкая платформа: скорость = ' + player.body.velocity.x);
-                    break;
+                    this.tweens.add({
+                        targets: player,
+                        y: player.y - 5,
+                        duration: 100,
+                        yoyo: true,
+                        ease: 'Sine.easeOut'
+                    });
                     
-                case 'vanishing':
-                    if (!platform.vanishing) {
-                        platform.vanishing = true;
-                        
-                        const blinkTween = this.tweens.add({
-                            targets: platform.container,
-                            alpha: 0.2,
-                            yoyo: true,
-                            repeat: 2,
-                            duration: 100,
-                            onComplete: () => {
-                                this.tweens.add({
-                                    targets: platform.container,
-                                    alpha: 0,
-                                    duration: 150,
-                                    onComplete: () => {
-                                        platform.destroy();
-                                    }
-                                });
-                            }
-                        });
-                    }
-                    break;
-                    
-                case 'sticky':
-                    // Устанавливаем флаг, что игрок на липкой платформе
-                    player.isOnStickyPlatform = true;
-                    
-                    if (!player.stuckOnPlatform) {
-                        player.stuckOnPlatform = true;
-                        
-                        this.tweens.add({
-                            targets: player,
-                            y: player.y - 5,
-                            duration: 100,
-                            yoyo: true,
-                            ease: 'Sine.easeOut'
-                        });
-                        
-                        // Применяем коэффициент замедления вместо фиксированного значения
-                        player.body.velocity.x *= this.stickySlowdownFactor;
-                    }
-                    break;
-                    
-                default:
-                    player.isOnSlipperyPlatform = false;
-                    break;
+                    // Применяем коэффициент замедления вместо фиксированного значения
+                    player.body.velocity.x *= this.stickySlowdownFactor;
+                }
+            } else {
+                player.isOnSlipperyPlatform = false;
             }
             
             // Если платформа движется, обрабатываем это
@@ -926,69 +967,79 @@ class GameScene extends Phaser.Scene {
     // Активация эффекта платформы при прыжке рядом с ней (без коллизии)
     activatePlatformEffectFromNearbyJump(player, platform) {
         if (!platform.active || !player.active) return;
+
+        const playerBottom = player.body.y + player.body.height;
+        const platformTop = platform.body.y;
         
-        // Помечаем платформу как использованную для начисления очков
-        if (!platform.wasJumpedOn) {
-            platform.wasJumpedOn = true;
-            
-            // Начисление очков за платформу
-            let scoreValue = 5;
-            
-            if (platform.type === 'fragile') {
-                scoreValue = 10;
-            } else if (platform.type === 'slippery') {
-                scoreValue = 15;
-            } else if (platform.type === 'vanishing') {
-                scoreValue = 20;
-            } else if (platform.type === 'sticky') {
-                scoreValue = 10;
-            }
-            
-            this.score += scoreValue;
-            
-            // Воспроизводим звук платформы
-            if (this.sounds && this.sounds.platform) {
-                this.sounds.platform.play();
-            }
+        // Расстояние по Y, в пределах которого считается, что игрок был рядом
+        const nearbyDistance = 50; // Расстояние, при котором срабатывает эффект
+        
+        // Проверяем, что прыжок был рядом с платформой
+        const isNearby = Math.abs(playerBottom - platformTop) <= nearbyDistance && 
+                        player.body.velocity.y > 0 &&
+                        !player.body.touching.down;
+                        
+        // Горизонтальное перекрытие
+        const playerRight = player.body.x + player.body.width;
+        const playerLeft = player.body.x;
+        const platformRight = platform.body.x + platform.body.width;
+        const platformLeft = platform.body.x;
+        
+        const isOverlapping = playerRight > platformLeft && playerLeft < platformRight;
+        
+        if (!isNearby || !isOverlapping) {
+            return;
+        }
+        
+        // Рассчитываем процент перекрытия игрока с платформой
+        const playerWidth = player.body.width;
+        const platformWidth = platform.body.width;
+        
+        const overlapLeft = Math.max(playerLeft, platformLeft);
+        const overlapRight = Math.min(playerRight, platformRight);
+        const overlapWidth = overlapRight - overlapLeft;
+        
+        // Минимальный порог для срабатывания эффекта (не менее 20% перекрытия)
+        const minOverlapRatio = 0.2;
+        const overlapRatio = overlapWidth / Math.min(playerWidth, platformWidth);
+        
+        if (overlapRatio < minOverlapRatio) {
+            return;
         }
         
         // Применяем эффект в зависимости от типа платформы
-        switch (platform.type) {
-            case 'fragile':
-                // Помечаем хрупкую платформу как активированную, сохраняем позицию игрока
-                if (!platform.fragileActivated) {
-                    platform.fragileActivated = true;
-                    platform.lastPlayerY = player.y;
-                }
-                break;
+        if (platform.type === 'fragile') {
+            // Помечаем хрупкую платформу как активированную, сохраняем позицию игрока
+            if (!platform.fragileActivated) {
+                platform.fragileActivated = true;
+                platform.lastPlayerY = player.y;
+            }
+        } else if (platform.type === 'vanishing') {
+            if (!platform.vanishing) {
+                platform.vanishing = true;
                 
-            case 'vanishing':
-                if (!platform.vanishing) {
-                    platform.vanishing = true;
-                    
-                    const blinkTween = this.tweens.add({
-                        targets: platform.container,
-                        alpha: 0.2,
-                        yoyo: true,
-                        repeat: 2,
-                        duration: 100,
-                        onComplete: () => {
-                            this.tweens.add({
-                                targets: platform.container,
-                                alpha: 0,
-                                duration: 150,
-                                onComplete: () => {
-                                    platform.destroy();
-                                }
-                            });
-                        }
-                    });
-                }
-                break;
-                
-            // Другие типы платформ (slippery, sticky) не активируются,
-            // так как их эффекты имеют смысл только при физическом контакте
+                const blinkTween = this.tweens.add({
+                    targets: platform.container,
+                    alpha: 0.2,
+                    yoyo: true,
+                    repeat: 2,
+                    duration: 100,
+                    onComplete: () => {
+                        this.tweens.add({
+                            targets: platform.container,
+                            alpha: 0,
+                            duration: 150,
+                            onComplete: () => {
+                                platform.destroy();
+                            }
+                        });
+                    }
+                });
+            }
         }
+        
+        // Другие типы платформ (slippery, sticky) не активируются,
+        // так как их эффекты имеют смысл только при физическом контакте
     }
 
     createUI() {
