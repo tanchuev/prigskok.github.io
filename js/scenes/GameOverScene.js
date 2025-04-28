@@ -194,31 +194,61 @@ class GameOverScene extends Phaser.Scene {
     saveScore() {
         const nickname = this.getCookie('playerNickname') || 'Аноним';
         
-        // Загружаем текущий лидерборд
-        let scores = [];
-        const leaderboardData = localStorage.getItem('jumpGameLeaderboard');
-        if (leaderboardData) {
-            scores = JSON.parse(leaderboardData);
+        // Если dreamlo доступен, отправляем результат на сервер
+        if (typeof dreamlo !== 'undefined') {
+            try {
+                // Ключи для dreamlo
+                const publicKey = '680ed22b8f40bb18ac70df27';
+                const privateKey = 'WJRxP_ErZ0uLBvmSL6uXBgdwIykOMp6kmqlN69KlSiuA';
+                const useHttps = false;
+                
+                console.log('Инициализация dreamlo...');
+                // Инициализируем dreamlo
+                dreamlo.initialize(publicKey, privateKey, useHttps);
+                
+                // Создаем уникальное имя, добавляя время к никнейму
+                const uniqueName = `${nickname}`;
+                
+                const scoreData = {
+                    name: uniqueName,
+                    points: this.score,
+                    seconds: Math.floor(this.gameTime), // Убедимся, что отправляем целое число секунд
+                    text: nickname // Сохраняем оригинальный никнейм в поле text
+                };
+                
+                console.log('Отправка результата в dreamlo:', scoreData);
+                console.log('Отправляемое время в секундах:', Math.floor(this.gameTime));
+                
+                // Отправляем счёт на сервер
+                dreamlo.addScore(
+                    scoreData, 
+                    dreamlo.ScoreFormat.Object, 
+                    dreamlo.SortOrder.PointsDescending, 
+                    true
+                )
+                .then(scores => {
+                    console.log('Результат успешно добавлен в dreamlo');
+                    console.log('Количество записей в ответе:', scores.length);
+                    
+                    // Проверяем, есть ли в ответе наша новая запись
+                    if (scores && scores.length > 0) {
+                        const ourScore = scores.find(s => s.name === uniqueName);
+                        if (ourScore) {
+                            console.log('Наша запись в ответе:', ourScore);
+                            console.log('Время в ответе (seconds):', ourScore.seconds);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка добавления результата в dreamlo:', error);
+                    console.error('Полное сообщение об ошибке:', error.message);
+                });
+            } catch (e) {
+                console.error('Ошибка при инициализации dreamlo в GameOverScene:', e);
+            }
+        } else {
+            console.error('Библиотека dreamlo не загружена, результат не сохранен');
         }
-        
-        // Добавляем новый результат
-        scores.push({
-            name: nickname,
-            score: this.score,
-            time: this.gameTime,
-            date: new Date().toLocaleDateString()
-        });
-        
-        // Сортируем по убыванию
-        scores.sort((a, b) => b.score - a.score);
-        
-        // Ограничиваем 20 лучшими результатами
-        if (scores.length > 20) {
-            scores = scores.slice(0, 20);
-        }
-        
-        // Сохраняем в localStorage
-        localStorage.setItem('jumpGameLeaderboard', JSON.stringify(scores));
     }
     
     getCookie(name) {
