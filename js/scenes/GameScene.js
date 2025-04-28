@@ -441,6 +441,10 @@ class GameScene extends Phaser.Scene {
         this.updateJumpVelocity();
         this.updateJumpCooldown();
         this.updatePlayerSpeed();
+        
+        // Инициализируем время начала игры
+        this.gameStartTime = this.time.now;
+        this.gameTime = 0;
     }
 
     setupCollisions() {
@@ -475,7 +479,13 @@ class GameScene extends Phaser.Scene {
             return;
         }
         
-        this.gameTime += delta / 1000;
+        // Обновляем время игры, если игра не окончена
+        if (!this.gameOver) {
+            this.gameTime += delta / 1000;
+            if (this.gameTimeText) {
+                this.gameTimeText.setText(this.formatTimeMMSS(this.gameTime));
+            }
+        }
         
         this.bg.tilePositionY = -this.cameras.main.scrollY * 0.3;
         
@@ -505,7 +515,7 @@ class GameScene extends Phaser.Scene {
                 this.player.animationState.addListener({
                     complete: (entry) => {
                         if (entry.animation.name === 'die') {
-                            this.scene.start('GameOverScene', { score: this.score });
+                            this.scene.start('GameOverScene', { score: this.score, gameTime: this.gameTime });
                         }
                     }
                 });
@@ -589,7 +599,7 @@ class GameScene extends Phaser.Scene {
                 this.player.animationState.addListener({
                     complete: (entry) => {
                         if (entry.animation.name === 'die') {
-                            this.scene.start('GameOverScene', { score: this.score });
+                            this.scene.start('GameOverScene', { score: this.score, gameTime: this.gameTime });
                         }
                     }
                 });
@@ -861,6 +871,21 @@ class GameScene extends Phaser.Scene {
                 player.isOnSlipperyPlatform = false;
             }
         }
+        
+        // Проверяем, игра окончена
+        if (this.gameOver) {
+            if (player.y > this.cameras.main.worldView.bottom + 500) {
+                // Остановка воды
+                this.waterRising.stop();
+                
+                // Остановка всех звуков
+                this.sound.stopAll();
+                
+                // Переход на экран окончания игры с передачей счета и времени
+                this.scene.start('GameOverScene', { score: this.score, gameTime: this.gameTime });
+            }
+            return;
+        }
     }
     
     // Активация эффекта платформы при прыжке рядом с ней (без коллизии)
@@ -953,6 +978,16 @@ class GameScene extends Phaser.Scene {
         });
         this.scoreText.setScrollFactor(0);
         this.scoreText.setDepth(1000); // Устанавливаем высокое значение глубины, чтобы текст был поверх всех объектов
+        
+        // Добавляем отображение времени игры в правом верхнем углу
+        this.gameTimeText = this.add.text(650, 16, '00:00', {
+            fontFamily: 'unutterable',
+            fontSize: '20px',
+            fill: '#ffffff',
+            align: 'right',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0, 0).setScrollFactor(0).setDepth(1000);
         
         // Добавляем кнопку паузы в правый верхний угол
         const pauseButton = this.add.image(780, 40, 'button-bg')
@@ -3208,5 +3243,12 @@ class GameScene extends Phaser.Scene {
         
         // Применяем множитель к базовой скорости
         this.player.animationState.timeScale = baseTimeScale * animSpeedMultiplier;
+    }
+
+    formatTimeMMSS(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        
+        return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 } 

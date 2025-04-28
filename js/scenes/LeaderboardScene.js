@@ -7,7 +7,7 @@ class LeaderboardScene extends Phaser.Scene {
     init(data) {
         // Если передан новый счет, обновляем лидерборд
         if (data && data.score) {
-            this.updateLeaderboard(data.score);
+            this.updateLeaderboard(data.score, data.gameTime || 0);
         }
     }
 
@@ -72,26 +72,34 @@ class LeaderboardScene extends Phaser.Scene {
         }
     }
     
-    updateLeaderboard(newScore) {
+    updateLeaderboard(newScore, gameTime) {
         const nickname = this.getCookie('playerNickname') || 'Аноним';
         
+        // Загружаем текущий лидерборд
+        let scores = [];
+        const leaderboardData = localStorage.getItem('jumpGameLeaderboard');
+        if (leaderboardData) {
+            scores = JSON.parse(leaderboardData);
+        }
+        
         // Добавляем новый результат
-        this.scores.push({
+        scores.push({
             name: nickname,
             score: newScore,
+            time: gameTime, // Используем переданное время
             date: new Date().toLocaleDateString()
         });
         
         // Сортируем по убыванию
-        this.scores.sort((a, b) => b.score - a.score);
+        scores.sort((a, b) => b.score - a.score);
         
         // Ограничиваем 20 лучшими результатами
-        if (this.scores.length > 20) {
-            this.scores = this.scores.slice(0, 20);
+        if (scores.length > 20) {
+            scores = scores.slice(0, 20);
         }
         
         // Сохраняем в localStorage
-        localStorage.setItem('jumpGameLeaderboard', JSON.stringify(this.scores));
+        localStorage.setItem('jumpGameLeaderboard', JSON.stringify(scores));
     }
     
     displayLeaderboard() {
@@ -107,19 +115,25 @@ class LeaderboardScene extends Phaser.Scene {
         }
         
         // Заголовки таблицы
-        this.add.text(150, 150, 'МЕСТО', {
+        this.add.text(100, 150, 'МЕСТО', {
             fontFamily: 'unutterable',
             fontSize: '24px',
             fill: '#aaaaaa'
         }).setOrigin(0.5);
         
-        this.add.text(300, 150, 'ИГРОК', {
+        this.add.text(220, 150, 'ИГРОК', {
             fontFamily: 'unutterable',
             fontSize: '24px',
             fill: '#aaaaaa'
         }).setOrigin(0.5);
         
-        this.add.text(500, 150, 'ВЫСОТА', {
+        this.add.text(400, 150, 'ВЫСОТА', {
+            fontFamily: 'unutterable',
+            fontSize: '24px',
+            fill: '#aaaaaa'
+        }).setOrigin(0.5);
+        
+        this.add.text(530, 150, 'ВРЕМЯ', {
             fontFamily: 'unutterable',
             fontSize: '24px',
             fill: '#aaaaaa'
@@ -144,7 +158,7 @@ class LeaderboardScene extends Phaser.Scene {
             const stroke = highlight ? '#aa5500' : '#000000';
             
             // Место
-            this.add.text(150, y, `${i + 1}`, {
+            this.add.text(100, y, `${i + 1}`, {
                 fontFamily: 'unutterable',
                 fontSize: '22px',
                 fill: color,
@@ -153,7 +167,7 @@ class LeaderboardScene extends Phaser.Scene {
             }).setOrigin(0.5);
             
             // Имя
-            this.add.text(300, y, score.name, {
+            this.add.text(220, y, score.name, {
                 fontFamily: 'unutterable',
                 fontSize: '22px',
                 fill: color,
@@ -162,7 +176,16 @@ class LeaderboardScene extends Phaser.Scene {
             }).setOrigin(0.5);
             
             // Счет
-            this.add.text(500, y, `${score.score}`, {
+            this.add.text(400, y, `${score.score}`, {
+                fontFamily: 'unutterable',
+                fontSize: '22px',
+                fill: color,
+                stroke: stroke,
+                strokeThickness: highlight ? 3 : 0
+            }).setOrigin(0.5);
+            
+            // Время
+            this.add.text(530, y, this.formatTime(score.time || 0), {
                 fontFamily: 'unutterable',
                 fontSize: '22px',
                 fill: color,
@@ -179,6 +202,13 @@ class LeaderboardScene extends Phaser.Scene {
                 strokeThickness: highlight ? 3 : 0
             }).setOrigin(0.5);
         }
+    }
+    
+    formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        
+        return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
     
     getCookie(name) {
