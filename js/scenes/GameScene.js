@@ -640,6 +640,34 @@ class GameScene extends Phaser.Scene {
             this.player.isOnSlipperyPlatform = false;
         }
         
+        // Проверка хрупких платформ и их удаление, если игрок отпрыгнул слишком далеко
+        this.fragilePlatforms.getChildren().forEach(platform => {
+            if (platform.fragileActivated && !platform.breaking) {
+                if (!this.player.onPlatform || this.player.currentPlatform !== platform) {
+                    // Определяем расстояние по Y между игроком и последней известной позицией
+                    const distanceY = Math.abs(this.player.y - platform.lastPlayerY);
+                    
+                    // Если игрок отпрыгнул более чем на 20 единиц, запускаем исчезновение платформы
+                    if (distanceY > 20) {
+                        platform.breaking = true;
+                        this.tweens.add({
+                            targets: platform.container,
+                            alpha: 0,
+                            y: platform.container.y + 20,
+                            duration: 300,
+                            ease: 'Power2',
+                            onComplete: () => {
+                                platform.destroy();
+                            }
+                        });
+                    }
+                } else {
+                    // Обновляем позицию игрока, если он стоит на платформе
+                    platform.lastPlayerY = this.player.y;
+                }
+            }
+        });
+        
         // Обновляем движущиеся платформы перед перемещением игрока
         this.movingPlatforms.getChildren().forEach(platform => {
             this.updateMovingPlatform(platform, delta);
@@ -756,52 +784,28 @@ class GameScene extends Phaser.Scene {
             
             switch (platform.type) {
                 case 'fragile':
-                    if (!platform.breaking) {
-                        platform.breaking = true;
-                        const breakTimer = this.time.delayedCall(300, () => {
-                            if (platform.active && platform.container) {
-                                this.tweens.add({
-                                    targets: platform.container,
-                                    alpha: 0,
-                                    y: platform.container.y + 20,
-                                    duration: 300,
-                                    ease: 'Power2',
-                                    onComplete: () => {
-                                        platform.destroy();
-                                    }
-                                });
-                            }
-                        });
+                    // Помечаем хрупкую платформу как активированную, но не запускаем таймер
+                    // Она будет существовать, пока игрок стоит на ней или близко к ней
+                    if (!platform.fragileActivated) {
+                        platform.fragileActivated = true;
+                        platform.lastPlayerY = player.y;
                     }
                     break;
                 
                 case 'slippery':
                     player.isOnSlipperyPlatform = true;
                     
-                    const currentVelocity = player.body.velocity.x * 1.1;
-                    let targetVelocity = currentVelocity;
-                    
+                    // Применяем скорость напрямую для немедленного эффекта скольжения
                     if (this.leftPressed) {
-                        targetVelocity = -this.moveSpeed * 1.5;
+                        player.body.velocity.x = -this.moveSpeed * 1.5;
                         this.lastDirection = -1; 
                     } else if (this.rightPressed) {
-                        targetVelocity = this.moveSpeed * 1.5;
+                        player.body.velocity.x = this.moveSpeed * 1.5;
                         this.lastDirection = 1; 
                     } else {
-                        // Сохраняем инерцию с минимальным трением
-                        if (Math.abs(currentVelocity) > 10) {
-                            // Мягкое замедление, очень малое трение для плавного скольжения
-                            targetVelocity = currentVelocity * 0.99; 
-                            // Сохраняем направление движения
-                            this.lastDirection = currentVelocity > 0 ? 1 : -1;
-                        } else {
-                            // Если скорость совсем низкая, добавляем небольшое скольжение в последнем направлении
-                            targetVelocity = this.lastDirection * 150;
-                        }
+                        // Если нет нажатий, сразу добавляем скольжение в последнем направлении
+                        player.body.velocity.x = this.lastDirection * 150;
                     }
-                    
-                    // Применяем скорость напрямую без интерполяции для более выраженного эффекта
-                    player.body.velocity.x = targetVelocity;
                     
                     console.log('Скользкая платформа: скорость = ' + player.body.velocity.x);
                     break;
@@ -920,22 +924,10 @@ class GameScene extends Phaser.Scene {
         // Применяем эффект в зависимости от типа платформы
         switch (platform.type) {
             case 'fragile':
-                if (!platform.breaking) {
-                    platform.breaking = true;
-                    const breakTimer = this.time.delayedCall(300, () => {
-                        if (platform.active && platform.container) {
-                            this.tweens.add({
-                                targets: platform.container,
-                                alpha: 0,
-                                y: platform.container.y + 20,
-                                duration: 300,
-                                ease: 'Power2',
-                                onComplete: () => {
-                                    platform.destroy();
-                                }
-                            });
-                        }
-                    });
+                // Помечаем хрупкую платформу как активированную, сохраняем позицию игрока
+                if (!platform.fragileActivated) {
+                    platform.fragileActivated = true;
+                    platform.lastPlayerY = player.y;
                 }
                 break;
                 
@@ -1117,8 +1109,10 @@ class GameScene extends Phaser.Scene {
                     this.player.body.velocity.x = this.moveSpeed * 1.5;
                     this.player.setFlipX(true);
                     this.lastDirection = 1;
-                } 
-                // Если нет нажатий, скорость сохраняется в playerHitPlatform
+                } else {
+                    // Если нет нажатий, сразу добавляем скольжение в последнем направлении
+                    this.player.body.velocity.x = this.lastDirection * 150;
+                }
             } else {
                 // Стандартное горизонтальное движение
                 if (this.leftPressed) {
@@ -2919,7 +2913,13 @@ class GameScene extends Phaser.Scene {
         effectContainer.add(iconBg);
         
         // Создаем иконку эффекта
-        const iconKey = `item_${effect.type.split('_')[0]}_${effect.type.split('_')[1]}`;
+        let iconKey;
+        if (effect.type === 'fade') {
+            iconKey = 'item_fade';
+        } else {
+            iconKey = `item_${effect.type.split('_')[0]}_${effect.type.split('_')[1]}`;
+        }
+        
         const icon = this.add.image(20, 20, iconKey).setOrigin(0.5);
         icon.setScale(0.4);
         effectContainer.add(icon);
