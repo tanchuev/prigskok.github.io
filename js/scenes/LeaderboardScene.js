@@ -3,9 +3,9 @@ class LeaderboardScene extends Phaser.Scene {
         super('LeaderboardScene');
         this.scores = [];
         
-        // Инициализация dreamlo
-        this.dreamloPublicKey = "680ed22b8f40bb18ac70df27";
-        this.dreamloPrivateKey ="WJRxP_ErZ0uLBvmSL6uXBgdwIykOMp6kmqlN69KlSiuA";
+        // Инициализация сервиса лидерборда
+        this.publicKey = "680ed22b8f40bb18ac70df27";
+        this.privateKey ="WJRxP_ErZ0uLBvmSL6uXBgdwIykOMp6kmqlN69KlSiuA";
         this.useHttps = true;
         
         // Для хранения UI элементов лидерборда
@@ -92,25 +92,25 @@ class LeaderboardScene extends Phaser.Scene {
         // Очищаем старые элементы лидерборда перед загрузкой новых
         this.clearLeaderboard();
         
-        // Проверяем, загружена ли библиотека dreamlo.js
-        if (typeof dreamlo === 'undefined') {
-            this.loadingText.setText('Ошибка загрузки библиотеки dreamlo.js');
-            console.error('Библиотека dreamlo не загружена');
+        // Проверяем, загружен ли сервис лидерборда
+        if (typeof leaderboardService === 'undefined') {
+            this.loadingText.setText('Ошибка загрузки сервиса лидерборда');
+            console.error('Сервис лидерборда не загружен');
             return;
         }
         
         try {
-            // Инициализируем dreamlo
-            dreamlo.initialize(this.dreamloPublicKey, this.dreamloPrivateKey, this.useHttps);
+            // Инициализируем сервис (для совместимости)
+            leaderboardService.initialize(this.publicKey, this.privateKey, this.useHttps);
             
-            console.log('Загрузка лидерборда с dreamlo...');
-            // Загружаем данные из dreamlo
-            dreamlo.getScores()
+            console.log('Загрузка лидерборда...');
+            // Загружаем данные
+            leaderboardService.getScores()
                 .then(scores => {
-                    console.log('Получены данные от dreamlo:', scores);
+                    console.log('Получены данные:', scores);
                     if (scores && scores.length > 0) {
                         this.scores = scores.map(entry => {
-                            console.log('Запись из dreamlo:', entry);
+                            console.log('Запись:', entry);
                             
                             // Проверяем и обрабатываем значение seconds
                             let timeValue = 0;
@@ -127,7 +127,8 @@ class LeaderboardScene extends Phaser.Scene {
                                 name: entry.name,
                                 score: parseInt(entry.score, 10),
                                 time: timeValue,
-                                date: entry.date.split(' ')[0] // Получаем только дату без времени
+                                date: entry.date,
+                                text: entry.text
                             };
                         });
                         this.displayLeaderboard();
@@ -145,8 +146,8 @@ class LeaderboardScene extends Phaser.Scene {
                     this.loadingText.setText('Ошибка загрузки лидерборда. Попробуйте позже.');
                 });
         } catch (e) {
-            console.error('Ошибка при инициализации dreamlo:', e);
-            this.loadingText.setText('Ошибка инициализации dreamlo.');
+            console.error('Ошибка при инициализации сервиса лидерборда:', e);
+            this.loadingText.setText('Ошибка инициализации сервиса.');
         }
     }
     

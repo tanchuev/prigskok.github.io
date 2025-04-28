@@ -194,17 +194,17 @@ class GameOverScene extends Phaser.Scene {
     saveScore() {
         const nickname = this.getCookie('playerNickname') || 'Аноним';
         
-        // Если dreamlo доступен, отправляем результат на сервер
-        if (typeof dreamlo !== 'undefined') {
+        // Если сервис лидерборда доступен, отправляем результат на сервер
+        if (typeof leaderboardService !== 'undefined') {
             try {
-                // Ключи для dreamlo
+                // Ключи для совместимости
                 const publicKey = '680ed22b8f40bb18ac70df27';
                 const privateKey = 'WJRxP_ErZ0uLBvmSL6uXBgdwIykOMp6kmqlN69KlSiuA';
                 const useHttps = true;
                 
-                console.log('Инициализация dreamlo...');
-                // Инициализируем dreamlo
-                dreamlo.initialize(publicKey, privateKey, useHttps);
+                console.log('Инициализация сервиса лидерборда...');
+                // Инициализируем сервис
+                leaderboardService.initialize(publicKey, privateKey, useHttps);
                 
                 // Создаем уникальное имя, добавляя время к никнейму
                 const uniqueName = `${nickname}`;
@@ -216,18 +216,18 @@ class GameOverScene extends Phaser.Scene {
                     text: nickname // Сохраняем оригинальный никнейм в поле text
                 };
                 
-                console.log('Отправка результата в dreamlo:', scoreData);
+                console.log('Отправка результата в лидерборд:', scoreData);
                 console.log('Отправляемое время в секундах:', Math.floor(this.gameTime));
                 
                 // Отправляем счёт на сервер
-                dreamlo.addScore(
+                leaderboardService.addScore(
                     scoreData, 
-                    dreamlo.ScoreFormat.Object, 
-                    dreamlo.SortOrder.PointsDescending, 
+                    leaderboardService.ScoreFormat.Object, 
+                    leaderboardService.SortOrder.PointsDescending, 
                     true
                 )
                 .then(scores => {
-                    console.log('Результат успешно добавлен в dreamlo');
+                    console.log('Результат успешно добавлен в лидерборд');
                     console.log('Количество записей в ответе:', scores.length);
                     
                     // Проверяем, есть ли в ответе наша новая запись
@@ -240,14 +240,14 @@ class GameOverScene extends Phaser.Scene {
                     }
                 })
                 .catch(error => {
-                    console.error('Ошибка добавления результата в dreamlo:', error);
+                    console.error('Ошибка добавления результата в лидерборд:', error);
                     console.error('Полное сообщение об ошибке:', error.message);
                 });
             } catch (e) {
-                console.error('Ошибка при инициализации dreamlo в GameOverScene:', e);
+                console.error('Ошибка при инициализации сервиса лидерборда в GameOverScene:', e);
             }
         } else {
-            console.error('Библиотека dreamlo не загружена, результат не сохранен');
+            console.error('Сервис лидерборда не загружен, результат не сохранен');
         }
     }
     
