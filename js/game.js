@@ -4,6 +4,15 @@ const config = {
     width: 800,
     height: 600,
     parent: 'game-container',
+    scale: {
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: 800,
+        height: 600,
+        // Расширяем конфигурацию скейлинга
+        fullscreenTarget: 'game-container',
+        expandParent: true
+    },
     physics: {
         default: 'arcade',
         arcade: {
@@ -11,10 +20,17 @@ const config = {
             debug: false
         }
     },
+    input: {
+        activePointers: 3, // Увеличиваем количество активных указателей для мультитача
+        smoothFactor: 0.2, // Добавляем сглаживание для лучшего контроля
+    },
     plugins: {
         scene: [
             { key: 'spine.SpinePlugin', plugin: spine.SpinePlugin, mapping: 'spine' }
         ]
+    },
+    dom: {
+        createContainer: true
     },
     scene: [BootScene, NicknameScene, StartScene, CharacterSelectScene, GameScene, PauseScene, GameOverScene, CreatureScene, LeaderboardScene]
 };
@@ -26,10 +42,105 @@ if (typeof spine === 'undefined' || typeof spine.SpinePlugin === 'undefined') {
     console.log('Spine плагин готов к использованию');
 }
 
+// Определение типа устройства
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+// Глобальные переменные
+window.GAME_CONFIG = {
+    isMobile: isMobile,
+    defaultWidth: 800,
+    defaultHeight: 600,
+    joystickRadius: 60,
+    isFullscreen: false,
+    // Добавляем функции для работы с полноэкранным режимом
+    toggleFullscreen: function(game) {
+        if (document.fullscreenElement || 
+            document.webkitFullscreenElement || 
+            document.mozFullScreenElement || 
+            document.msFullscreenElement) {
+            // Выход из полноэкранного режима
+            window.GAME_CONFIG.isFullscreen = false;
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        } else {
+            // Вход в полноэкранный режим
+            window.GAME_CONFIG.isFullscreen = true;
+            game.scale.startFullscreen();
+        }
+    }
+};
+
 // Создание игры
 const game = new Phaser.Game(config);
 
-// Глобальные переменные
+// Добавляем обработчик загрузки для автоматического запуска полноэкранного режима на мобильных устройствах
+document.addEventListener('DOMContentLoaded', function() {
+    // Обработчики событий полноэкранного режима
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+    
+    // Добавляем кнопку полноэкранного режима
+    const fullscreenButton = document.createElement('button');
+    fullscreenButton.id = 'fullscreen-button';
+    fullscreenButton.innerHTML = '⛶';
+    fullscreenButton.style.position = 'absolute';
+    fullscreenButton.style.zIndex = '1000';
+    fullscreenButton.style.top = '10px';
+    fullscreenButton.style.right = '10px';
+    fullscreenButton.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    fullscreenButton.style.color = 'white';
+    fullscreenButton.style.border = 'none';
+    fullscreenButton.style.borderRadius = '5px';
+    fullscreenButton.style.padding = '5px 10px';
+    fullscreenButton.style.fontSize = '20px';
+    fullscreenButton.style.cursor = 'pointer';
+    fullscreenButton.style.display = 'block';
+    fullscreenButton.onclick = function() {
+        window.GAME_CONFIG.toggleFullscreen(game);
+    };
+    document.getElementById('game-container').appendChild(fullscreenButton);
+    
+    // Автоматический переход в полноэкранный режим на мобильных устройствах
+    if (isMobile) {
+        document.body.addEventListener('touchstart', function() {
+            if (!window.GAME_CONFIG.isFullscreen) {
+                window.GAME_CONFIG.toggleFullscreen(game);
+            }
+        }, { once: true });
+    }
+});
+
+// Обработчик изменения состояния полноэкранного режима
+function handleFullscreenChange() {
+    const isFullscreen = !!(document.fullscreenElement || 
+                           document.webkitFullscreenElement || 
+                           document.mozFullScreenElement || 
+                           document.msFullscreenElement);
+    
+    window.GAME_CONFIG.isFullscreen = isFullscreen;
+    const fullscreenButton = document.getElementById('fullscreen-button');
+    
+    if (fullscreenButton) {
+        fullscreenButton.innerHTML = isFullscreen ? '⮌' : '⛶';
+    }
+    
+    // Обновляем размер игры с учетом панелей браузера
+    if (game && game.scale) {
+        console.log('Обновление размеров при изменении полноэкранного режима');
+        game.scale.refresh();
+    }
+}
+
+// Глобальные переменные для игры
 let player;
 let platforms;
 let cursors;

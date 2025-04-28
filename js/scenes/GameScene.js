@@ -291,7 +291,8 @@ class GameScene extends Phaser.Scene {
         this.physics.world.setBounds(0, -95000, 800, 96500); // Изменяем верхнюю границу для соответствия границам камеры
         this.physics.world.setBoundsCollision(true, true, false, true); // Отключаем коллизию только с верхней границей
 
-        this.bg = this.add.tileSprite(400, 300, 800, 600, 'bg');
+        // Изменяем размер фона, чтобы он полностью покрывал экран
+        this.bg = this.add.tileSprite(400, 300, 900, 700, 'bg');
         this.bg.setScrollFactor(0);
         
         // Группы платформ
@@ -546,19 +547,22 @@ class GameScene extends Phaser.Scene {
             this.drawJumpZoneDebug();
         }
         
-        if (this.cursors.left.isDown) {
-            this.leftPressed = true;
-            this.rightPressed = false;
-        } else if (this.cursors.right.isDown) {
-            this.rightPressed = true;
-            this.leftPressed = false;
-        } else {
-            this.leftPressed = false;
-            this.rightPressed = false;
-        }
-        
-        if (this.spaceKey && this.spaceKey.isDown) {
-            this.jumpPressed = true;
+        // Проверяем ввод с клавиатуры только если на десктопе
+        if (this.sys.game.device.os.desktop) {
+            if (this.cursors.left.isDown) {
+                this.leftPressed = true;
+                this.rightPressed = false;
+            } else if (this.cursors.right.isDown) {
+                this.rightPressed = true;
+                this.leftPressed = false;
+            } else {
+                this.leftPressed = false;
+                this.rightPressed = false;
+            }
+            
+            if (this.spaceKey && this.spaceKey.isDown) {
+                this.jumpPressed = true;
+            }
         }
         
         const cameraTargetY = Math.round(this.player.y) - 350;
@@ -967,20 +971,31 @@ class GameScene extends Phaser.Scene {
     }
 
     createUI() {
+        // Получаем размеры экрана
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        
+        const isMobile = window.GAME_CONFIG.isMobile;
+        
+        // Настраиваем размер шрифта в зависимости от размера экрана
+        const scoreFontSize = isMobile ? '18px' : '20px';
+        const timeFontSize = isMobile ? '18px' : '20px';
+        
         this.scoreText = this.add.text(16, 16, 'Предел твоих возможностей: 0', { 
             fontFamily: 'unutterable',
-            fontSize: '20px', 
+            fontSize: scoreFontSize, 
             fill: '#fff',
             stroke: '#000',
             strokeThickness: 3
         });
         this.scoreText.setScrollFactor(0);
-        this.scoreText.setDepth(1000); // Устанавливаем высокое значение глубины, чтобы текст был поверх всех объектов
+        this.scoreText.setDepth(1000);
         
         // Добавляем отображение времени игры в правом верхнем углу
-        this.gameTimeText = this.add.text(650, 16, '00:00', {
+        const timeX = width - 150;
+        this.gameTimeText = this.add.text(timeX, 16, '00:00', {
             fontFamily: 'unutterable',
-            fontSize: '20px',
+            fontSize: timeFontSize,
             fill: '#ffffff',
             align: 'right',
             stroke: '#000000',
@@ -988,16 +1003,19 @@ class GameScene extends Phaser.Scene {
         }).setOrigin(0, 0).setScrollFactor(0).setDepth(1000);
         
         // Добавляем кнопку паузы в правый верхний угол
-        const pauseButton = this.add.image(780, 40, 'button-bg')
-            .setScale(0.3)
+        const pauseButtonX = width - 40;
+        const pauseButtonY = 40;
+        
+        const pauseButton = this.add.circle(pauseButtonX, pauseButtonY, 25, 0x000000, 0.5)
             .setInteractive()
             .setDepth(1000)
-            .setScrollFactor(0); // Чтобы кнопка оставалась на месте при прокрутке
+            .setScrollFactor(0)
+            .setAlpha(0.7);
 
-        const pauseText = this.add.text(780, 40, 'II', {
+        const pauseText = this.add.text(pauseButtonX, pauseButtonY, 'II', {
             fontFamily: 'unutterable',
-            fontSize: '32px',
-            color: '#00FFFF',
+            fontSize: '22px',
+            fill: '#00FFFF',
             align: 'center'
         }).setOrigin(0.5).setDepth(1000).setScrollFactor(0);
 
@@ -1005,6 +1023,17 @@ class GameScene extends Phaser.Scene {
             this.scene.pause();
             this.scene.launch('PauseScene', { gameScene: 'GameScene' });
         });
+        
+        // Добавляем наблюдение за изменением размера экрана
+        this.scale.on('resize', this.resizeUI, this);
+        
+        // Сохраняем ссылки на элементы управления в объекте для дальнейшего обновления
+        this.uiElements = {
+            scoreText: this.scoreText,
+            gameTimeText: this.gameTimeText,
+            pauseButton: pauseButton,
+            pauseText: pauseText
+        };
         
         if (this.sys.game.device.os.desktop) {
             const controlHint = this.add.text(16, 60, 
@@ -1016,52 +1045,197 @@ class GameScene extends Phaser.Scene {
                 strokeThickness: 2
             });
             controlHint.setScrollFactor(0);
-            controlHint.setDepth(1000); // Также устанавливаем высокую глубину для подсказки
+            controlHint.setDepth(1000);
             
             this.time.delayedCall(5000, () => {
                 controlHint.alpha = 0;
             });
+            
+            this.uiElements.controlHint = controlHint;
+        } else {
+            // Добавляем подсказку для мобильных устройств
+            const mobileHint = this.add.text(width / 2, 120, 
+                'Используйте джойстик для движения и кнопку для прыжка', { 
+                fontFamily: 'unutterable',
+                fontSize: '16px', 
+                fill: '#fff',
+                stroke: '#000',
+                strokeThickness: 2
+            }).setOrigin(0.5);
+            mobileHint.setScrollFactor(0);
+            mobileHint.setDepth(1000);
+            
+            this.time.delayedCall(5000, () => {
+                mobileHint.alpha = 0;
+            });
+            
+            this.uiElements.mobileHint = mobileHint;
+        }
+        
+        // Вызываем метод resizeUI для инициализации позиций
+        this.resizeUI();
+    }
+    
+    resizeUI() {
+        if (!this.uiElements) return;
+        
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        
+        // Обновляем позицию таймера
+        if (this.uiElements.gameTimeText) {
+            this.uiElements.gameTimeText.x = width - 150;
+        }
+        
+        // Обновляем позицию кнопки паузы
+        if (this.uiElements.pauseButton) {
+            this.uiElements.pauseButton.x = width - 40;
+        }
+        
+        if (this.uiElements.pauseText) {
+            this.uiElements.pauseText.x = width - 40;
+        }
+        
+        // Обновляем подсказку для мобильных
+        if (this.uiElements.mobileHint) {
+            this.uiElements.mobileHint.x = width / 2;
         }
     }
 
     createMobileControls() {
         if (!this.sys.game.device.os.desktop) {
-            const leftZone = this.add.zone(150, 400, 200, 400);
-            leftZone.setScrollFactor(0);
-            leftZone.setInteractive();
-            leftZone.on('pointerdown', () => {
-                this.leftPressed = true;
-            });
-            leftZone.on('pointerup', () => {
-                this.leftPressed = false;
-            });
+            // Очищаем предыдущие контроллеры если они есть
+            if (this.joyStick) {
+                this.joyStick.destroy();
+            }
+            if (this.jumpButton) {
+                this.jumpButton.destroy();
+            }
             
-            const rightZone = this.add.zone(650, 400, 200, 400);
-            rightZone.setScrollFactor(0);
-            rightZone.setInteractive();
-            rightZone.on('pointerdown', () => {
-                this.rightPressed = true;
-            });
-            rightZone.on('pointerup', () => {
-                this.rightPressed = false;
-            });
+            // Включаем поддержку мультитача в игре
+            this.input.addPointer(2); // Добавляем поддержку минимум 2 касаний
             
-            const jumpButton = this.add.circle(700, 500, 40, 0x4de9e7, 0.7);
-            jumpButton.setScrollFactor(0);
-            jumpButton.setInteractive();
-            jumpButton.on('pointerdown', () => {
-                this.jumpPressed = true;
-            });
-            jumpButton.on('pointerup', () => {
-                this.jumpPressed = false;
-            });
+            // Хранение идентификаторов активных касаний
+            this.activeTouches = {
+                joystick: null,
+                jumpButton: null
+            };
             
-            const jumpText = this.add.text(700, 500, "П", {
+            // Создаем базовые объекты для джойстика
+            // Позиционируем джойстик ближе к левому нижнему углу
+            const joystickBase = this.add.circle(100, this.cameras.main.height - 100, window.GAME_CONFIG.joystickRadius, 0x000000, 0.5);
+            joystickBase.setScrollFactor(0);
+            joystickBase.setDepth(1000);
+            joystickBase.setInteractive();
+            joystickBase.setAlpha(0.7);
+            joystickBase.name = 'joystickBase'; // Добавляем имя для идентификации
+            
+            const joystickHandle = this.add.circle(100, this.cameras.main.height - 100, window.GAME_CONFIG.joystickRadius / 2, 0x4de9e7, 1);
+            joystickHandle.setScrollFactor(0);
+            joystickHandle.setDepth(1001);
+            joystickHandle.setAlpha(0.9);
+            
+            // Сохраняем референсы
+            this.joystickBase = joystickBase;
+            this.joystickHandle = joystickHandle;
+            
+            // Начальная позиция джойстика
+            this.joystickBasePosition = {
+                x: 100,
+                y: this.cameras.main.height - 100
+            };
+            
+            // Создаем кнопку прыжка
+            // Позиционируем кнопку прыжка ближе к правому нижнему углу
+            const jumpButtonRadius = 60;
+            this.jumpButton = this.add.circle(this.cameras.main.width - 80, this.cameras.main.height - 100, jumpButtonRadius, 0x4de9e7, 0.7);
+            this.jumpButton.setScrollFactor(0);
+            this.jumpButton.setDepth(1000);
+            this.jumpButton.setInteractive();
+            this.jumpButton.setAlpha(0.7);
+            this.jumpButton.name = 'jumpButton'; // Добавляем имя для идентификации
+            
+            // Добавляем текст на кнопку прыжка
+            const jumpText = this.add.text(this.cameras.main.width - 80, this.cameras.main.height - 100, "П", {
                 fontFamily: 'unutterable',
                 fontSize: '32px',
                 fill: '#fff'
             }).setOrigin(0.5);
             jumpText.setScrollFactor(0);
+            jumpText.setDepth(1001);
+            
+            // Обработчики событий для мультитача
+            this.input.on('pointerdown', (pointer) => {
+                const touchX = pointer.x;
+                const touchY = pointer.y;
+                
+                // Проверяем, попало ли касание на джойстик
+                const distToJoystick = Phaser.Math.Distance.Between(
+                    touchX, touchY, 
+                    this.joystickBase.x, this.joystickBase.y
+                );
+                
+                // Проверяем, попало ли касание на кнопку прыжка
+                const distToJumpButton = Phaser.Math.Distance.Between(
+                    touchX, touchY, 
+                    this.jumpButton.x, this.jumpButton.y
+                );
+                
+                // Активируем соответствующий контрол
+                if (distToJoystick <= window.GAME_CONFIG.joystickRadius * 1.5) {
+                    // Касание в области джойстика
+                    this.activeTouches.joystick = pointer.id;
+                    this.isJoystickActive = true;
+                    this.updateJoystickPosition(pointer);
+                } else if (distToJumpButton <= jumpButtonRadius * 1.5) {
+                    // Касание в области кнопки прыжка
+                    this.activeTouches.jumpButton = pointer.id;
+                    this.jumpPressed = true;
+                }
+            });
+            
+            this.input.on('pointermove', (pointer) => {
+                // Обновляем позицию джойстика, если этот указатель контролирует джойстик
+                if (this.isJoystickActive && pointer.id === this.activeTouches.joystick) {
+                    this.updateJoystickPosition(pointer);
+                }
+            });
+            
+            this.input.on('pointerup', (pointer) => {
+                // Если это был указатель, контролирующий джойстик
+                if (pointer.id === this.activeTouches.joystick) {
+                    this.activeTouches.joystick = null;
+                    this.isJoystickActive = false;
+                    // Возвращаем джойстик в центральное положение
+                    this.joystickHandle.x = this.joystickBase.x;
+                    this.joystickHandle.y = this.joystickBase.y;
+                    // Сбрасываем флаги движения
+                    this.leftPressed = false;
+                    this.rightPressed = false;
+                    this.movementIntensity = 0;
+                }
+                
+                // Если это был указатель, контролирующий кнопку прыжка
+                if (pointer.id === this.activeTouches.jumpButton) {
+                    this.activeTouches.jumpButton = null;
+                    this.jumpPressed = false;
+                }
+            });
+            
+            // Обрабатываем выход указателя за пределы активной области
+            this.input.on('pointerout', (pointer) => {
+                // Если указатель контролировал кнопку прыжка, сбрасываем
+                if (pointer.id === this.activeTouches.jumpButton) {
+                    this.activeTouches.jumpButton = null;
+                    this.jumpPressed = false;
+                }
+            });
+            
+            // Обработка изменения размера экрана
+            this.scale.on('resize', this.resizeMobileControls, this);
+            
+            // Инициализируем первоначальное положение
+            this.resizeMobileControls();
         } else {
             this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
             
@@ -1085,6 +1259,102 @@ class GameScene extends Phaser.Scene {
             });
         }
     }
+    
+    updateJoystickPosition(pointer) {
+        if (!this.joystickBase || !this.joystickHandle) return;
+        
+        // Рассчитываем вектор от центра до указателя
+        const dx = pointer.x - this.joystickBase.x;
+        const dy = pointer.y - this.joystickBase.y;
+        
+        // Рассчитываем расстояние
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Ограничиваем расстояние радиусом джойстика
+        const maxDistance = window.GAME_CONFIG.joystickRadius;
+        
+        // Если расстояние меньше радиуса, перемещаем ручку к указателю
+        // Иначе ограничиваем расстояние
+        if (distance < maxDistance) {
+            this.joystickHandle.x = pointer.x;
+            this.joystickHandle.y = pointer.y;
+        } else {
+            // Нормализуем вектор и умножаем на максимальное расстояние
+            const normalizedDx = dx / distance;
+            const normalizedDy = dy / distance;
+            
+            this.joystickHandle.x = this.joystickBase.x + normalizedDx * maxDistance;
+            this.joystickHandle.y = this.joystickBase.y + normalizedDy * maxDistance;
+        }
+        
+        // Сохраняем текущее смещение джойстика для использования в других местах
+        this.joystickDelta = {
+            x: this.joystickHandle.x - this.joystickBase.x,
+            y: this.joystickHandle.y - this.joystickBase.y,
+            normalized: {
+                x: distance > 0 ? (this.joystickHandle.x - this.joystickBase.x) / maxDistance : 0,
+                y: distance > 0 ? (this.joystickHandle.y - this.joystickBase.y) / maxDistance : 0
+            }
+        };
+        
+        // Устанавливаем флаги нажатия клавиш с более низким порогом
+        // и дополнительно сохраняем направление для плавной регулировки скорости
+        if (dx < -10) {
+            this.leftPressed = true;
+            this.rightPressed = false;
+            // Сохраняем интенсивность движения (от 0 до 1)
+            this.movementIntensity = Math.min(Math.abs(dx) / maxDistance, 1);
+        } else if (dx > 10) {
+            this.leftPressed = false;
+            this.rightPressed = true;
+            // Сохраняем интенсивность движения (от 0 до 1)
+            this.movementIntensity = Math.min(Math.abs(dx) / maxDistance, 1);
+        } else {
+            this.leftPressed = false;
+            this.rightPressed = false;
+            this.movementIntensity = 0;
+        }
+    }
+    
+    resizeMobileControls() {
+        if (!this.sys.game.device.os.desktop && this.cameras && this.cameras.main) {
+            // Обновляем позицию джойстика при изменении размера экрана
+            const width = this.cameras.main.width;
+            const height = this.cameras.main.height;
+            
+            // Позиционируем джойстик ближе к левому нижнему углу
+            if (this.joystickBase) {
+                this.joystickBase.x = 100;
+                this.joystickBase.y = height - 100;
+                this.joystickBasePosition = {
+                    x: 100,
+                    y: height - 100
+                };
+            }
+            
+            if (this.joystickHandle) {
+                this.joystickHandle.x = 100;
+                this.joystickHandle.y = height - 100;
+            }
+            
+            // Позиционируем кнопку прыжка ближе к правому нижнему углу
+            if (this.jumpButton) {
+                this.jumpButton.x = width - 80;
+                this.jumpButton.y = height - 100;
+            }
+            
+            // Обновляем текст кнопки прыжка если он существует
+            const jumpText = this.children.list.find(child => 
+                child.type === 'Text' && 
+                child.text === 'П' &&
+                child.scrollFactorX === 0);
+                
+            if (jumpText) {
+                jumpText.x = width - 80;
+                jumpText.y = height - 100;
+            }
+        }
+    }
 
     playerMovement() {
         if (!this.player || !this.player.body) return;
@@ -1104,15 +1374,18 @@ class GameScene extends Phaser.Scene {
                 this.player.body.velocity.x = 0;
             }
         } else if (!this.player.knockbackActive) { // Добавляем проверку флага knockbackActive
+            // Регулировка скорости в зависимости от интенсивности джойстика (если доступно)
+            const intensity = this.movementIntensity !== undefined ? this.movementIntensity : 1;
+            
             // Если игрок на скользкой платформе, не сбрасываем его скорость
             if (this.player.isOnSlipperyPlatform) {
                 // Учитываем направление движения
                 if (this.leftPressed) {
-                    this.player.body.velocity.x = -this.moveSpeed * 1.5;
+                    this.player.body.velocity.x = -this.moveSpeed * 1.5 * intensity;
                     this.player.setFlipX(false);
                     this.lastDirection = -1;
                 } else if (this.rightPressed) {
-                    this.player.body.velocity.x = this.moveSpeed * 1.5;
+                    this.player.body.velocity.x = this.moveSpeed * 1.5 * intensity;
                     this.player.setFlipX(true);
                     this.lastDirection = 1;
                 } else {
@@ -1122,10 +1395,10 @@ class GameScene extends Phaser.Scene {
             } else {
                 // Стандартное горизонтальное движение
                 if (this.leftPressed) {
-                    this.player.body.velocity.x = -this.moveSpeed;
+                    this.player.body.velocity.x = -this.moveSpeed * intensity;
                     this.player.setFlipX(false);
                 } else if (this.rightPressed) {
-                    this.player.body.velocity.x = this.moveSpeed;
+                    this.player.body.velocity.x = this.moveSpeed * intensity;
                     this.player.setFlipX(true);
                 } else {
                     this.player.body.velocity.x = 0;

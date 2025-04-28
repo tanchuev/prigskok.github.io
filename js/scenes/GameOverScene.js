@@ -15,13 +15,20 @@ class GameOverScene extends Phaser.Scene {
     }
 
     create() {
+        // Определяем, является ли устройство мобильным
+        this.isMobile = !this.sys.game.device.os.desktop;
+        
+        // Получаем размеры экрана
+        this.screenWidth = this.cameras.main.width;
+        this.screenHeight = this.cameras.main.height;
+        
         // Фон
-        this.add.image(400, 300, 'background');
+        this.add.image(this.screenWidth / 2, this.screenHeight / 2, 'background');
         
         // Заголовок "Игра окончена"
-        this.add.text(400, 120, 'ИГРА ОКОНЧЕНА', {
+        this.titleText = this.add.text(this.screenWidth / 2, this.isMobile ? 80 : 120, 'ИГРА ОКОНЧЕНА', {
             fontFamily: 'unutterable',
-            fontSize: '58px',
+            fontSize: this.isMobile ? '42px' : '58px',
             color: '#ff0000',
             align: 'center',
             stroke: '#000000',
@@ -29,9 +36,9 @@ class GameOverScene extends Phaser.Scene {
         }).setOrigin(0.5);
         
         // Отображаем счет
-        this.add.text(400, 200, `Предел твоих возможностей: ${this.score}`, {
+        this.scoreText = this.add.text(this.screenWidth / 2, this.isMobile ? 150 : 200, `Предел твоих возможностей: ${this.score}`, {
             fontFamily: 'unutterable',
-            fontSize: '32px',
+            fontSize: this.isMobile ? '24px' : '32px',
             color: '#ffffff',
             align: 'center',
             stroke: '#000000',
@@ -39,9 +46,9 @@ class GameOverScene extends Phaser.Scene {
         }).setOrigin(0.5);
         
         // Отображаем время прохождения
-        this.add.text(400, 240, `Время: ${this.formatTime(this.gameTime)}`, {
+        this.timeText = this.add.text(this.screenWidth / 2, this.isMobile ? 190 : 240, `Время: ${this.formatTime(this.gameTime)}`, {
             fontFamily: 'unutterable',
-            fontSize: '28px',
+            fontSize: this.isMobile ? '22px' : '28px',
             color: '#88ffff',
             align: 'center',
             stroke: '#000000',
@@ -50,7 +57,7 @@ class GameOverScene extends Phaser.Scene {
         
         // Получаем имя игрока и проверяем рейтинг в лидерборде
         const nickname = this.getCookie('playerNickname') || 'Аноним';
-        const playerY = 280; // Позиция для имени игрока
+        const playerY = this.isMobile ? 230 : 280; // Позиция для имени игрока
         
         // Загружаем текущий лидерборд для проверки позиции
         let scores = [];
@@ -62,7 +69,7 @@ class GameOverScene extends Phaser.Scene {
         // Определяем, нужно ли показывать сообщение о рекорде
         let showRecordMessage = false;
         let recordMessage = '';
-        let recordY = 320; // Позиция для сообщения о рекорде
+        let recordY = this.isMobile ? 270 : 320; // Позиция для сообщения о рекорде
         
         if (scores.length > 0) {
             // Находим позицию текущего результата
@@ -80,9 +87,9 @@ class GameOverScene extends Phaser.Scene {
         }
         
         // Отображаем имя игрока
-        this.add.text(400, playerY, `Игрок: ${nickname}`, {
+        this.playerText = this.add.text(this.screenWidth / 2, playerY, `Игрок: ${nickname}`, {
             fontFamily: 'unutterable',
-            fontSize: '24px',
+            fontSize: this.isMobile ? '20px' : '24px',
             color: '#ffff88',
             align: 'center',
             stroke: '#000000',
@@ -91,9 +98,11 @@ class GameOverScene extends Phaser.Scene {
         
         // Отображаем сообщение о рекорде, если нужно
         if (showRecordMessage) {
-            this.add.text(400, recordY, recordMessage, {
+            this.recordText = this.add.text(this.screenWidth / 2, recordY, recordMessage, {
                 fontFamily: 'unutterable',
-                fontSize: recordMessage.includes('НОВЫЙ РЕКОРД') ? '32px' : '24px',
+                fontSize: recordMessage.includes('НОВЫЙ РЕКОРД') ? 
+                    (this.isMobile ? '28px' : '32px') : 
+                    (this.isMobile ? '20px' : '24px'),
                 color: recordMessage.includes('НОВЫЙ РЕКОРД') ? '#ffff00' : '#aaaaff',
                 align: 'center',
                 stroke: '#000000',
@@ -102,93 +111,139 @@ class GameOverScene extends Phaser.Scene {
         }
         
         // Кнопки - смещаем их вниз, если есть сообщение о рекорде
-        const buttonsStartY = showRecordMessage ? 380 : 350;
+        const buttonsStartY = showRecordMessage ? 
+                                (this.isMobile ? 320 : 380) : 
+                                (this.isMobile ? 290 : 350);
+        
+        // Размер кнопок и отступы между ними
+        const buttonFontSize = this.isMobile ? '22px' : '24px';
+        const buttonPadding = this.isMobile ? { x: 15, y: 8 } : { x: 20, y: 10 };
+        const buttonSpacing = this.isMobile ? 50 : 60;
         
         // Кнопка "Играть снова"
-        const playAgainButton = this.add.text(400, buttonsStartY, 'Я МОГУ БОЛЬШЕ!', {
+        this.playAgainButton = this.add.text(this.screenWidth / 2, buttonsStartY, 'Я МОГУ БОЛЬШЕ!', {
             fontFamily: 'unutterable',
-            fontSize: '24px',
+            fontSize: buttonFontSize,
             color: '#ffffff',
             backgroundColor: '#338833',
             align: 'center',
             stroke: '#000000',
             strokeThickness: 4,
-            padding: {
-                x: 20,
-                y: 10
-            }
+            padding: buttonPadding
         }).setOrigin(0.5).setInteractive();
         
         // Кнопка "Лидерборд"
-        const leaderboardButton = this.add.text(400, buttonsStartY + 60, 'ПОСМОТРЕТЬ РЕКОРДЫ', {
+        this.leaderboardButton = this.add.text(this.screenWidth / 2, buttonsStartY + buttonSpacing, 'ПОСМОТРЕТЬ РЕКОРДЫ', {
             fontFamily: 'unutterable',
-            fontSize: '24px',
+            fontSize: buttonFontSize,
             color: '#ffffff',
             backgroundColor: '#883388',
             align: 'center',
             stroke: '#000000',
             strokeThickness: 4,
-            padding: {
-                x: 20,
-                y: 10
-            }
+            padding: buttonPadding
         }).setOrigin(0.5).setInteractive();
         
         // Кнопка "Главное меню"
-        const menuButton = this.add.text(400, buttonsStartY + 120, 'Я не могу больше :(', {
+        this.menuButton = this.add.text(this.screenWidth / 2, buttonsStartY + buttonSpacing * 2, 'Я не могу больше :(', {
             fontFamily: 'unutterable',
-            fontSize: '24px',
+            fontSize: buttonFontSize,
             color: '#ffffff',
             backgroundColor: '#666666',
             align: 'center',
             stroke: '#000000',
             strokeThickness: 4,
-            padding: {
-                x: 20,
-                y: 10
-            }
+            padding: buttonPadding
         }).setOrigin(0.5).setInteractive();
         
         // Эффекты при наведении
-        playAgainButton.on('pointerover', () => {
-            playAgainButton.setStyle({ color: '#ffff00', backgroundColor: '#33aa33' });
+        this.playAgainButton.on('pointerover', () => {
+            this.playAgainButton.setStyle({ color: '#ffff00', backgroundColor: '#33aa33' });
         });
         
-        playAgainButton.on('pointerout', () => {
-            playAgainButton.setStyle({ color: '#ffffff', backgroundColor: '#338833' });
+        this.playAgainButton.on('pointerout', () => {
+            this.playAgainButton.setStyle({ color: '#ffffff', backgroundColor: '#338833' });
         });
         
-        leaderboardButton.on('pointerover', () => {
-            leaderboardButton.setStyle({ color: '#ffff00', backgroundColor: '#aa33aa' });
+        this.leaderboardButton.on('pointerover', () => {
+            this.leaderboardButton.setStyle({ color: '#ffff00', backgroundColor: '#aa33aa' });
         });
         
-        leaderboardButton.on('pointerout', () => {
-            leaderboardButton.setStyle({ color: '#ffffff', backgroundColor: '#883388' });
+        this.leaderboardButton.on('pointerout', () => {
+            this.leaderboardButton.setStyle({ color: '#ffffff', backgroundColor: '#883388' });
         });
         
-        menuButton.on('pointerover', () => {
-            menuButton.setStyle({ color: '#ffff00', backgroundColor: '#888888' });
+        this.menuButton.on('pointerover', () => {
+            this.menuButton.setStyle({ color: '#ffff00', backgroundColor: '#888888' });
         });
         
-        menuButton.on('pointerout', () => {
-            menuButton.setStyle({ color: '#ffffff', backgroundColor: '#666666' });
+        this.menuButton.on('pointerout', () => {
+            this.menuButton.setStyle({ color: '#ffffff', backgroundColor: '#666666' });
         });
         
         // Действия при нажатии
-        playAgainButton.on('pointerdown', () => {
-            playAgainButton.setStyle({ color: '#ff8800' });
+        this.playAgainButton.on('pointerdown', () => {
+            this.playAgainButton.setStyle({ color: '#ff8800' });
             this.scene.start('CharacterSelectScene');
         });
         
-        leaderboardButton.on('pointerdown', () => {
-            leaderboardButton.setStyle({ color: '#ff8800' });
+        this.leaderboardButton.on('pointerdown', () => {
+            this.leaderboardButton.setStyle({ color: '#ff8800' });
             this.scene.start('LeaderboardScene', { score: this.score, gameTime: this.gameTime });
         });
         
-        menuButton.on('pointerdown', () => {
-            menuButton.setStyle({ color: '#ff8800' });
+        this.menuButton.on('pointerdown', () => {
+            this.menuButton.setStyle({ color: '#ff8800' });
             this.scene.start('StartScene');
         });
+        
+        // Добавляем обработчик изменения размера экрана
+        this.scale.on('resize', this.resize, this);
+    }
+    
+    resize(gameSize) {
+        if (!gameSize) return;
+        
+        this.screenWidth = gameSize.width;
+        this.screenHeight = gameSize.height;
+        
+        if (this.titleText) {
+            this.titleText.setPosition(this.screenWidth / 2, this.isMobile ? 80 : 120);
+        }
+        
+        if (this.scoreText) {
+            this.scoreText.setPosition(this.screenWidth / 2, this.isMobile ? 150 : 200);
+        }
+        
+        if (this.timeText) {
+            this.timeText.setPosition(this.screenWidth / 2, this.isMobile ? 190 : 240);
+        }
+        
+        if (this.playerText) {
+            this.playerText.setPosition(this.screenWidth / 2, this.isMobile ? 230 : 280);
+        }
+        
+        if (this.recordText) {
+            this.recordText.setPosition(this.screenWidth / 2, this.isMobile ? 270 : 320);
+        }
+        
+        const buttonsStartY = this.recordText ? 
+                               (this.isMobile ? 320 : 380) : 
+                               (this.isMobile ? 290 : 350);
+        
+        const buttonSpacing = this.isMobile ? 50 : 60;
+        
+        if (this.playAgainButton) {
+            this.playAgainButton.setPosition(this.screenWidth / 2, buttonsStartY);
+        }
+        
+        if (this.leaderboardButton) {
+            this.leaderboardButton.setPosition(this.screenWidth / 2, buttonsStartY + buttonSpacing);
+        }
+        
+        if (this.menuButton) {
+            this.menuButton.setPosition(this.screenWidth / 2, buttonsStartY + buttonSpacing * 2);
+        }
     }
     
     saveScore() {

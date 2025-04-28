@@ -20,13 +20,30 @@ class LeaderboardScene extends Phaser.Scene {
     }
 
     create() {
+        // Получаем размеры экрана
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        
+        // Определяем, является ли устройство мобильным
+        this.isMobile = !this.sys.game.device.os.desktop;
+        
+        // Определяем масштаб для мобильных устройств
+        const titleFontSize = this.isMobile ? '36px' : '48px';
+        const btnFontSize = this.isMobile ? '20px' : '24px';
+        
         // Фон
-        this.add.image(400, 300, 'background');
+        const bg = this.add.image(width / 2, height / 2, 'background');
+        const scaleX = width / bg.width;
+        bg.setScale(scaleX, scaleX); // Сохраняем пропорции при масштабировании
+        // Центрируем по вертикали если изображение слишком большое
+        if (bg.height * scaleX > height) {
+            bg.y = height / 2;
+        }
         
         // Заголовок
-        this.add.text(400, 80, 'ЛИДЕРБОРД', {
+        this.titleText = this.add.text(width / 2, this.isMobile ? height * 0.12 : height * 0.15, 'ЛИДЕРБОРД', {
             fontFamily: 'unutterable',
-            fontSize: '48px',
+            fontSize: titleFontSize,
             fill: '#ffffff',
             align: 'center',
             stroke: '#000000',
@@ -34,9 +51,9 @@ class LeaderboardScene extends Phaser.Scene {
         }).setOrigin(0.5);
         
         // Индикатор загрузки
-        this.loadingText = this.add.text(400, 280, 'Загрузка лидерборда...', {
+        this.loadingText = this.add.text(width / 2, height * 0.4, 'Загрузка лидерборда...', {
             fontFamily: 'unutterable',
-            fontSize: '24px',
+            fontSize: this.isMobile ? '20px' : '24px',
             fill: '#888888',
             align: 'center'
         }).setOrigin(0.5);
@@ -45,34 +62,111 @@ class LeaderboardScene extends Phaser.Scene {
         this.loadLeaderboard();
         
         // Кнопка "Назад"
-        const backButton = this.add.text(400, 530, 'НАЗАД', {
+        this.backButton = this.add.text(width / 2, height * 0.85, 'НАЗАД', {
             fontFamily: 'unutterable',
-            fontSize: '24px',
+            fontSize: btnFontSize,
             fill: '#ffffff',
             backgroundColor: '#666666',
             align: 'center',
             stroke: '#000000',
             strokeThickness: 4,
             padding: {
-                x: 20,
-                y: 10
+                x: this.isMobile ? 15 : 20,
+                y: this.isMobile ? 8 : 10
             }
         }).setOrigin(0.5).setInteractive();
         
         // Эффекты при наведении
-        backButton.on('pointerover', () => {
-            backButton.setStyle({ fill: '#ffff00', backgroundColor: '#888888' });
+        this.backButton.on('pointerover', () => {
+            this.backButton.setStyle({ fill: '#ffff00', backgroundColor: '#888888' });
         });
         
-        backButton.on('pointerout', () => {
-            backButton.setStyle({ fill: '#ffffff', backgroundColor: '#666666' });
+        this.backButton.on('pointerout', () => {
+            this.backButton.setStyle({ fill: '#ffffff', backgroundColor: '#666666' });
         });
         
         // Действие при нажатии
-        backButton.on('pointerdown', () => {
-            backButton.setStyle({ fill: '#ff8800' });
+        this.backButton.on('pointerdown', () => {
+            this.backButton.setStyle({ fill: '#ff8800' });
             this.scene.start('StartScene');
         });
+        
+        // Обработка изменения размера экрана
+        this.scale.on('resize', this.resizeScene, this);
+    }
+    
+    resizeScene() {
+        if (!this.titleText || !this.backButton) return;
+        
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        
+        // Обновляем фон
+        const bg = this.children.list.find(child => child.type === 'Image' && child.texture.key === 'background');
+        if (bg) {
+            bg.x = width / 2;
+            bg.y = height / 2;
+            const scaleX = width / bg.width;
+            bg.setScale(scaleX, scaleX);
+            if (bg.height * scaleX > height) {
+                bg.y = height / 2;
+            }
+        }
+        
+        // Обновляем заголовок
+        this.titleText.setPosition(width / 2, height * 0.15);
+        
+        // Обновляем текст загрузки
+        if (this.loadingText) {
+            this.loadingText.setPosition(width / 2, height * 0.4);
+        }
+        
+        // Обновляем кнопку назад
+        this.backButton.setPosition(width / 2, height * 0.85);
+        
+        // Обновляем позиции элементов лидерборда
+        this.repositionLeaderboardElements();
+    }
+    
+    repositionLeaderboardElements() {
+        if (!this.leaderboardElements || this.leaderboardElements.length === 0) return;
+        
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        
+        // Если есть только сообщение "Пока нет результатов"
+        if (this.leaderboardElements.length === 1 && 
+            this.leaderboardElements[0].text === 'Пока нет результатов') {
+            this.leaderboardElements[0].setPosition(width / 2, height * 0.4);
+            return;
+        }
+        
+        // Если отображается таблица лидеров
+        // Заголовки таблицы (первые 5 элементов)
+        if (this.leaderboardElements.length >= 5) {
+            // Заголовки: МЕСТО, ИГРОК, ВЫСОТА, ВРЕМЯ, ДАТА
+            const columnWidths = [0.15, 0.30, 0.50, 0.65, 0.82]; // Пропорции от ширины экрана
+            
+            for (let i = 0; i < 5; i++) {
+                this.leaderboardElements[i].setPosition(width * columnWidths[i], height * 0.25);
+            }
+            
+            // Данные таблицы
+            if (this.leaderboardElements.length > 5) {
+                const rows = Math.floor((this.leaderboardElements.length - 5) / 5); // Количество строк
+                
+                for (let row = 0; row < rows; row++) {
+                    const y = height * 0.25 + (row + 1) * (height * 0.05);
+                    
+                    for (let col = 0; col < 5; col++) {
+                        const index = 5 + row * 5 + col;
+                        if (index < this.leaderboardElements.length) {
+                            this.leaderboardElements[index].setPosition(width * columnWidths[col], y);
+                        }
+                    }
+                }
+            }
+        }
     }
     
     // Очищаем все UI элементы лидерборда
@@ -150,148 +244,126 @@ class LeaderboardScene extends Phaser.Scene {
         }
     }
     
-    updateLeaderboard(newScore, gameTime) {
-        // Этот метод теперь не требуется, так как сохранение происходит только в GameOverScene
-        // Оставлен для обратной совместимости
-        console.log('Обновление лидерборда в LeaderboardScene больше не используется');
-    }
-    
     displayLeaderboard() {
         // Очищаем предыдущие элементы перед отображением
         this.clearLeaderboard();
         
-        // Если данных нет
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        
+        // Определяем размеры шрифта в зависимости от устройства
+        const headerFontSize = this.isMobile ? '16px' : '20px';
+        const dataFontSize = this.isMobile ? '14px' : '18px';
+        
+        // Проверяем, есть ли данные для отображения
         if (!this.scores || this.scores.length === 0) {
-            const noResultsText = this.add.text(400, 280, 'Пока нет результатов', {
+            const noScoresText = this.add.text(width / 2, height * 0.4, 'Пока нет результатов', {
                 fontFamily: 'unutterable',
-                fontSize: '24px',
-                fill: '#888888',
+                fontSize: this.isMobile ? '20px' : '24px',
+                fill: '#ffffff',
                 align: 'center'
             }).setOrigin(0.5);
             
-            this.leaderboardElements.push(noResultsText);
+            this.leaderboardElements.push(noScoresText);
             return;
         }
         
-        // Очищаем текст загрузки
-        this.loadingText.setVisible(false);
+        // Сортируем очки по убыванию
+        this.scores.sort((a, b) => b.score - a.score);
+        
+        // Адаптируем пропорции колонок в зависимости от типа устройства
+        const columnWidths = this.isMobile ? 
+            [0.1, 0.35, 0.55, 0.70, 0.85] : // Мобильные (компактнее)
+            [0.15, 0.30, 0.50, 0.65, 0.82]; // Десктоп
         
         // Заголовки таблицы
-        this.leaderboardElements.push(
-            this.add.text(100, 150, 'МЕСТО', {
+        const headers = ['МЕСТО', 'ИГРОК', 'ВЫСОТА', 'ВРЕМЯ', 'ДАТА'];
+        for (let i = 0; i < headers.length; i++) {
+            const headerText = this.add.text(width * columnWidths[i], height * 0.25, headers[i], {
                 fontFamily: 'unutterable',
-                fontSize: '24px',
-                fill: '#aaaaaa'
-            }).setOrigin(0.5)
-        );
+                fontSize: headerFontSize,
+                fill: '#ffff88',
+                align: i === 0 ? 'center' : 'left',
+                stroke: '#000000',
+                strokeThickness: 3
+            });
+            
+            // Устанавливаем origin для каждого заголовка
+            if (i === 0) {
+                headerText.setOrigin(0.5, 0.5); // Центрируем колонку "МЕСТО"
+            } else {
+                headerText.setOrigin(0, 0.5); // Выравниваем остальные заголовки по левому краю
+            }
+            
+            this.leaderboardElements.push(headerText);
+        }
         
-        this.leaderboardElements.push(
-            this.add.text(220, 150, 'ИГРОК', {
+        // Ограничиваем количество отображаемых строк для мобильных устройств
+        const maxRows = this.isMobile ? 8 : 10;
+        const displayScores = this.scores.slice(0, maxRows);
+        
+        // Создаем таблицу очков
+        for (let i = 0; i < displayScores.length; i++) {
+            const score = displayScores[i];
+            const y = height * 0.25 + (i + 1) * (this.isMobile ? height * 0.045 : height * 0.05);
+            
+            // Место (ранг)
+            const rankText = this.add.text(width * columnWidths[0], y, (i + 1).toString(), {
                 fontFamily: 'unutterable',
-                fontSize: '24px',
-                fill: '#aaaaaa'
-            }).setOrigin(0.5)
-        );
-        
-        this.leaderboardElements.push(
-            this.add.text(400, 150, 'ВЫСОТА', {
+                fontSize: dataFontSize,
+                fill: i < 3 ? '#ffff00' : '#ffffff', // Выделяем первые 3 места
+                align: 'center',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5, 0.5);
+            
+            // Имя игрока
+            const nameText = this.add.text(width * columnWidths[1], y, score.name, {
                 fontFamily: 'unutterable',
-                fontSize: '24px',
-                fill: '#aaaaaa'
-            }).setOrigin(0.5)
-        );
-        
-        this.leaderboardElements.push(
-            this.add.text(530, 150, 'ВРЕМЯ', {
-                fontFamily: 'unutterable',
-                fontSize: '24px',
-                fill: '#aaaaaa'
-            }).setOrigin(0.5)
-        );
-        
-        this.leaderboardElements.push(
-            this.add.text(650, 150, 'ДАТА', {
-                fontFamily: 'unutterable',
-                fontSize: '24px',
-                fill: '#aaaaaa'
-            }).setOrigin(0.5)
-        );
-        
-        // Определяем текущего игрока
-        const currentNickname = this.getCookie('playerNickname') || 'Аноним';
-        
-        // Отображаем не более 10 лучших результатов
-        const maxDisplay = Math.min(10, this.scores.length);
-        for (let i = 0; i < maxDisplay; i++) {
-            const score = this.scores[i];
-            const y = 190 + i * 30;
-            
-            // Для dreamlo записей, используем поле text как имя игрока, если оно есть
-            const playerName = score.text || score.name;
-            
-            // Проверяем, принадлежит ли результат текущему игроку
-            // Для dreamlo записей проверяем, содержит ли имя никнейм текущего игрока
-            const highlight = 
-                playerName === currentNickname || 
-                (score.name && score.name.includes(currentNickname));
-            
-            const color = highlight ? '#ffff00' : '#ffffff';
-            const stroke = highlight ? '#aa5500' : '#000000';
-            
-            // Место
-            this.leaderboardElements.push(
-                this.add.text(100, y, `${i + 1}`, {
-                    fontFamily: 'unutterable',
-                    fontSize: '22px',
-                    fill: color,
-                    stroke: stroke,
-                    strokeThickness: highlight ? 3 : 0
-                }).setOrigin(0.5)
-            );
-            
-            // Имя - используем поле text из dreamlo если доступно, иначе имя
-            this.leaderboardElements.push(
-                this.add.text(220, y, playerName, {
-                    fontFamily: 'unutterable',
-                    fontSize: '22px',
-                    fill: color,
-                    stroke: stroke,
-                    strokeThickness: highlight ? 3 : 0
-                }).setOrigin(0.5)
-            );
+                fontSize: dataFontSize,
+                fill: '#ffffff',
+                align: 'left',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0, 0.5);
             
             // Счет
-            this.leaderboardElements.push(
-                this.add.text(400, y, `${score.score}`, {
-                    fontFamily: 'unutterable',
-                    fontSize: '22px',
-                    fill: color,
-                    stroke: stroke,
-                    strokeThickness: highlight ? 3 : 0
-                }).setOrigin(0.5)
-            );
+            const scoreText = this.add.text(width * columnWidths[2], y, score.score.toString(), {
+                fontFamily: 'unutterable',
+                fontSize: dataFontSize,
+                fill: '#ffffff',
+                align: 'left',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0, 0.5);
             
             // Время
-            this.leaderboardElements.push(
-                this.add.text(530, y, this.formatTime(score.time || 0), {
-                    fontFamily: 'unutterable',
-                    fontSize: '22px',
-                    fill: color,
-                    stroke: stroke,
-                    strokeThickness: highlight ? 3 : 0
-                }).setOrigin(0.5)
-            );
+            const timeText = this.add.text(width * columnWidths[3], y, this.formatTime(score.time), {
+                fontFamily: 'unutterable',
+                fontSize: dataFontSize,
+                fill: '#88ffff',
+                align: 'left',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0, 0.5);
             
             // Дата
-            this.leaderboardElements.push(
-                this.add.text(650, y, score.date, {
-                    fontFamily: 'unutterable',
-                    fontSize: '22px',
-                    fill: color,
-                    stroke: stroke,
-                    strokeThickness: highlight ? 3 : 0
-                }).setOrigin(0.5)
-            );
+            const dateText = this.add.text(width * columnWidths[4], y, score.date, {
+                fontFamily: 'unutterable',
+                fontSize: dataFontSize,
+                fill: '#aaaaaa',
+                align: 'left',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0, 0.5);
+            
+            // Добавляем элементы в массив для последующего управления
+            this.leaderboardElements.push(rankText, nameText, scoreText, timeText, dateText);
+        }
+        
+        // Скрываем индикатор загрузки
+        if (this.loadingText) {
+            this.loadingText.setVisible(false);
         }
     }
     

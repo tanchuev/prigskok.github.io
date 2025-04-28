@@ -2,7 +2,13 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="HandheldFriendly" content="true">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="msapplication-tap-highlight" content="no">
     <title>Прыг-Скок: Командная Высота</title>
     <!-- Подключение локального шрифта -->
     <style>
@@ -13,21 +19,43 @@
             font-style: normal;
         }
         
-        body {
+        html, body {
             margin: 0;
             padding: 0;
             overflow: hidden;
+            width: 100%;
+            height: 100%;
             background-color: #222;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
+        
         #game-container {
             width: 100%;
             height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            /* Поддержка для iPhone X и новее */
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            touch-action: none;
         }
+        
         canvas {
             display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
         }
         
         /* Предзагрузка шрифта */
@@ -37,10 +65,92 @@
             visibility: hidden;
             left: -10000px;
         }
+
+        /* Стили для ориентации экрана */
+        @media screen and (orientation: portrait) {
+            .orientation-message {
+                display: flex;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.8);
+                color: white;
+                justify-content: center;
+                align-items: center;
+                text-align: center;
+                z-index: 9999;
+                font-family: 'unutterable', sans-serif;
+                flex-direction: column;
+                padding: 20px;
+                box-sizing: border-box;
+            }
+            .orientation-icon {
+                font-size: 48px;
+                margin-bottom: 20px;
+                transform: rotate(90deg);
+                display: inline-block;
+            }
+        }
+        
+        @media screen and (orientation: landscape) {
+            .orientation-message {
+                display: none;
+            }
+        }
+        
+        /* Стили для кнопки полноэкранного режима */
+        #fullscreen-button {
+            position: absolute;
+            z-index: 1000;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 8px 12px;
+            font-size: 20px;
+            cursor: pointer;
+            display: block;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        
+        #fullscreen-button:hover {
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        
+        #fullscreen-button:active {
+            transform: scale(0.95);
+        }
+        
+        /* Скрываем кнопку в полноэкранном режиме на некоторых устройствах */
+        :fullscreen #fullscreen-button {
+            opacity: 0.5;
+        }
+        
+        :-webkit-full-screen #fullscreen-button {
+            opacity: 0.5;
+        }
+        
+        /* Стили для iOS */
+        @supports (-webkit-touch-callout: none) {
+            #game-container {
+                height: -webkit-fill-available;
+            }
+        }
     </style>
 </head>
 <body>
     <div id="game-container"></div>
+    
+    <!-- Сообщение о повороте экрана для мобильных устройств -->
+    <div class="orientation-message" id="orientation-message">
+        <div class="orientation-icon">📱</div>
+        <div>Для лучшего игрового опыта поверните устройство в горизонтальное положение</div>
+    </div>
+    
     <!-- Элемент для предзагрузки шрифтов -->
     <div class="fontPreload">ABCDEFGHIJKLMNOPQRSTUVWXYZ</div>
     
@@ -58,7 +168,59 @@
             console.log('Spine плагин успешно загружен:', spine.version || 'версия не определена');
             console.log('Phaser версия:', Phaser.VERSION);
         }
+        
+        // Проверяем ориентацию экрана
+        checkOrientation();
+        
+        // Добавляем обработчик изменения ориентации
+        window.addEventListener('orientationchange', checkOrientation);
+        window.addEventListener('resize', checkOrientation);
+        
+        // Обработчик предотвращения прокрутки на iOS
+        document.addEventListener('touchmove', function(e) {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Предотвращение двойного тапа для зума
+        document.addEventListener('touchend', function(e) {
+            const now = Date.now();
+            const lastTouch = window.lastTouch || now;
+            const delta = now - lastTouch;
+            if (delta < 300 && delta > 0) {
+                e.preventDefault();
+            }
+            window.lastTouch = now;
+        }, false);
     });
+    
+    // Функция проверки ориентации экрана
+    function checkOrientation() {
+        const orientationMessage = document.getElementById('orientation-message');
+        
+        // Определяем соотношение сторон экрана для более точного определения ориентации
+        const aspectRatio = window.innerWidth / window.innerHeight;
+        
+        // Если это не мобильное устройство или соотношение сторон указывает на ландшафтную ориентацию
+        if (!(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) || aspectRatio > 1) {
+            orientationMessage.style.display = 'none';
+        } else {
+            orientationMessage.style.display = 'flex';
+        }
+        
+        // Обновляем размеры для области отображения после изменения ориентации
+        updateViewportHeight();
+    }
+    
+    // Обновление высоты области отображения (для решения проблемы с адресной строкой)
+    function updateViewportHeight() {
+        if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            // Для iOS устройств
+            const gameContainer = document.getElementById('game-container');
+            gameContainer.style.height = window.innerHeight + 'px';
+        }
+    }
     </script>
     
     <script src="js/scenes/PlayerAbilities.js"></script>
