@@ -81,7 +81,26 @@ class BootScene extends Phaser.Scene {
     }
 
     create() {
-        // После загрузки переходим на стартовую сцену
-        this.scene.start('StartScene');
+        // Проверяем, есть ли сохраненный никнейм
+        const savedNickname = this.getCookie('playerNickname');
+        
+        // Если никнейма нет, переходим на экран ввода имени
+        // Если есть - переходим сразу на стартовую сцену
+        if (!savedNickname) {
+            this.scene.start('NicknameScene');
+        } else {
+            this.scene.start('StartScene');
+        }
+    }
+    
+    getCookie(name) {
+        const nameEQ = name + '=';
+        const ca = document.cookie.split(';');
+        for (let i = 0; i < ca.length; i++) {
+            let c = ca[i];
+            while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+            if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
+        }
+        return null;
     }
 } 
