@@ -255,7 +255,7 @@ class GameOverScene extends Phaser.Scene {
                 // Ключи для dreamlo
                 const publicKey = '680ed22b8f40bb18ac70df27';
                 const privateKey = 'WJRxP_ErZ0uLBvmSL6uXBgdwIykOMp6kmqlN69KlSiuA';
-                const useHttps = false;
+                const useHttps = true;
                 
                 console.log('Инициализация dreamlo...');
                 // Инициализируем dreamlo
