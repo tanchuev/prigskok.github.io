@@ -17,7 +17,7 @@ class MusicManager {
         this.isMuted = false;
         
         // Громкость (от 0 до 1)
-        this.volume = 0.5;
+        this.volume = 0.6;
     }
     
     // Инициализация с сценой
@@ -30,7 +30,7 @@ class MusicManager {
             if (!this.tracks.main_theme) {
                 this.tracks.main_theme = scene.sound.add('main_theme', {
                     loop: true,
-                    volume: this.volume
+                    volume: 0.2
                 });
             }
         }

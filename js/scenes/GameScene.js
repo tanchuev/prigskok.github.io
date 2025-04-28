@@ -131,6 +131,9 @@ class GameScene extends Phaser.Scene {
         
         // Активные эффекты бонусов
         this.activeEffects = [];
+        
+        // Инициализация флага для проигрывания звука смеха
+        this.evilLaughPlayed = false;
     }
 
     init(data) {
@@ -150,6 +153,9 @@ class GameScene extends Phaser.Scene {
         if (this.physics) {
             this.physics.resume();
         }
+        
+        // Сбрасываем флаг воспроизведения злого смеха
+        this.evilLaughPlayed = false;
         
         this.score = 0;
         
@@ -222,6 +228,9 @@ class GameScene extends Phaser.Scene {
         this.jumpVelocityMultiplier = 1;
         this.jumpCooldownMultiplier = 1;
         this.playerSpeedMultiplier = 1;
+        
+        // Возвращаем true, чтобы метод init завершился успешно
+        return true;
     }
 
     preload() {
@@ -242,6 +251,7 @@ class GameScene extends Phaser.Scene {
         this.load.audio('platform', 'assets/sounds/platform.mp3');
         this.load.audio('doubleJump', 'assets/sounds/doublejump.mp3');
         this.load.audio('splash', 'assets/sounds/splash.mp3');
+        this.load.audio('evilLaugh', 'assets/sounds/evil/evil-laugh.ogg');
         
         // Загрузка звуков для бонусных предметов
         this.load.audio('item_jump_boost', 'assets/sounds/items/jump_boost.ogg');
@@ -404,6 +414,7 @@ class GameScene extends Phaser.Scene {
         this.powerupSound = this.sound.add('powerup');
         this.doubleJumpSound = this.sound.add('doubleJump');
         this.splashSound = this.sound.add('splash');
+        this.evilLaughSound = this.sound.add('evilLaugh');
         
         // Добавляем звуки для бонусных предметов
         this.itemSounds = {
@@ -508,6 +519,10 @@ class GameScene extends Phaser.Scene {
                 this.player.skeleton.color.a = 1;
 
                 this.player.animationState.setAnimation(0, 'die', false);
+                
+                // Проигрываем звук злобного смеха
+                this.evilLaughSound.play();
+                this.evilLaughPlayed = true;
 
                 this.physics.pause();
 
@@ -595,6 +610,10 @@ class GameScene extends Phaser.Scene {
                 this.player.skeleton.color.a = 1;
 
                 this.player.animationState.setAnimation(0, 'die', false);
+                
+                // Проигрываем звук злобного смеха
+                this.evilLaughSound.play();
+                this.evilLaughPlayed = true;
 
                 this.physics.pause();
 
@@ -887,6 +906,12 @@ class GameScene extends Phaser.Scene {
             if (player.y > this.cameras.main.worldView.bottom + 500) {
                 // Остановка воды
                 this.waterRising.stop();
+                
+                // Проигрываем звук злобного смеха, если он еще не проигрывался
+                if (!this.evilLaughPlayed) {
+                    this.evilLaughSound.play();
+                    this.evilLaughPlayed = true;
+                }
                 
                 // Остановка всех звуков
                 this.sound.stopAll();
