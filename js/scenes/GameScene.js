@@ -1112,15 +1112,6 @@ class GameScene extends Phaser.Scene {
                 this.jumpButton.destroy();
             }
             
-            // Включаем поддержку мультитача в игре
-            this.input.addPointer(2); // Добавляем поддержку минимум 2 касаний
-            
-            // Хранение идентификаторов активных касаний
-            this.activeTouches = {
-                joystick: null,
-                jumpButton: null
-            };
-            
             // Создаем базовые объекты для джойстика
             // Позиционируем джойстик ближе к левому нижнему углу
             const joystickBase = this.add.circle(100, this.cameras.main.height - 100, window.GAME_CONFIG.joystickRadius, 0x000000, 0.5);
@@ -1128,7 +1119,6 @@ class GameScene extends Phaser.Scene {
             joystickBase.setDepth(1000);
             joystickBase.setInteractive();
             joystickBase.setAlpha(0.7);
-            joystickBase.name = 'joystickBase'; // Добавляем имя для идентификации
             
             const joystickHandle = this.add.circle(100, this.cameras.main.height - 100, window.GAME_CONFIG.joystickRadius / 2, 0x4de9e7, 1);
             joystickHandle.setScrollFactor(0);
@@ -1153,7 +1143,6 @@ class GameScene extends Phaser.Scene {
             this.jumpButton.setDepth(1000);
             this.jumpButton.setInteractive();
             this.jumpButton.setAlpha(0.7);
-            this.jumpButton.name = 'jumpButton'; // Добавляем имя для идентификации
             
             // Добавляем текст на кнопку прыжка
             const jumpText = this.add.text(this.cameras.main.width - 80, this.cameras.main.height - 100, "П", {
@@ -1164,71 +1153,39 @@ class GameScene extends Phaser.Scene {
             jumpText.setScrollFactor(0);
             jumpText.setDepth(1001);
             
-            // Обработчики событий для мультитача
-            this.input.on('pointerdown', (pointer) => {
-                const touchX = pointer.x;
-                const touchY = pointer.y;
-                
-                // Проверяем, попало ли касание на джойстик
-                const distToJoystick = Phaser.Math.Distance.Between(
-                    touchX, touchY, 
-                    this.joystickBase.x, this.joystickBase.y
-                );
-                
-                // Проверяем, попало ли касание на кнопку прыжка
-                const distToJumpButton = Phaser.Math.Distance.Between(
-                    touchX, touchY, 
-                    this.jumpButton.x, this.jumpButton.y
-                );
-                
-                // Активируем соответствующий контрол
-                if (distToJoystick <= window.GAME_CONFIG.joystickRadius * 1.5) {
-                    // Касание в области джойстика
-                    this.activeTouches.joystick = pointer.id;
-                    this.isJoystickActive = true;
-                    this.updateJoystickPosition(pointer);
-                } else if (distToJumpButton <= jumpButtonRadius * 1.5) {
-                    // Касание в области кнопки прыжка
-                    this.activeTouches.jumpButton = pointer.id;
-                    this.jumpPressed = true;
-                }
+            // Добавляем обработчик нажатия на кнопку прыжка
+            this.jumpButton.on('pointerdown', () => {
+                this.jumpPressed = true;
+            });
+            this.jumpButton.on('pointerup', () => {
+                this.jumpPressed = false;
+            });
+            this.jumpButton.on('pointerout', () => {
+                this.jumpPressed = false;
+            });
+            
+            // Обработка событий джойстика
+            joystickBase.on('pointerdown', (pointer) => {
+                // Активируем движение джойстика
+                this.isJoystickActive = true;
+                this.updateJoystickPosition(pointer);
             });
             
             this.input.on('pointermove', (pointer) => {
-                // Обновляем позицию джойстика, если этот указатель контролирует джойстик
-                if (this.isJoystickActive && pointer.id === this.activeTouches.joystick) {
+                if (this.isJoystickActive) {
                     this.updateJoystickPosition(pointer);
                 }
             });
             
-            this.input.on('pointerup', (pointer) => {
-                // Если это был указатель, контролирующий джойстик
-                if (pointer.id === this.activeTouches.joystick) {
-                    this.activeTouches.joystick = null;
-                    this.isJoystickActive = false;
-                    // Возвращаем джойстик в центральное положение
-                    this.joystickHandle.x = this.joystickBase.x;
-                    this.joystickHandle.y = this.joystickBase.y;
-                    // Сбрасываем флаги движения
-                    this.leftPressed = false;
-                    this.rightPressed = false;
-                    this.movementIntensity = 0;
-                }
+            this.input.on('pointerup', () => {
+                // Деактивируем джойстик и возвращаем ручку в центр
+                this.isJoystickActive = false;
+                this.joystickHandle.x = this.joystickBase.x;
+                this.joystickHandle.y = this.joystickBase.y;
                 
-                // Если это был указатель, контролирующий кнопку прыжка
-                if (pointer.id === this.activeTouches.jumpButton) {
-                    this.activeTouches.jumpButton = null;
-                    this.jumpPressed = false;
-                }
-            });
-            
-            // Обрабатываем выход указателя за пределы активной области
-            this.input.on('pointerout', (pointer) => {
-                // Если указатель контролировал кнопку прыжка, сбрасываем
-                if (pointer.id === this.activeTouches.jumpButton) {
-                    this.activeTouches.jumpButton = null;
-                    this.jumpPressed = false;
-                }
+                // Сбрасываем флаги нажатия
+                this.leftPressed = false;
+                this.rightPressed = false;
             });
             
             // Обработка изменения размера экрана

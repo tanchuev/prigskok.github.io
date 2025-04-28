@@ -20,153 +20,219 @@ class LeaderboardScene extends Phaser.Scene {
     }
 
     create() {
-        // Получаем размеры экрана
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
+        // Получаем параметры, если они переданы
+        const params = this.scene.settings.data || {};
+        this.newScore = params.score;
+        this.newHeight = params.height;
+        this.newGameTime = params.gameTime;
         
         // Определяем, является ли устройство мобильным
         this.isMobile = !this.sys.game.device.os.desktop;
         
-        // Определяем масштаб для мобильных устройств
-        const titleFontSize = this.isMobile ? '36px' : '48px';
-        const btnFontSize = this.isMobile ? '20px' : '24px';
+        // Получаем размеры экрана
+        this.screenWidth = this.cameras.main.width;
+        this.screenHeight = this.cameras.main.height;
         
-        // Фон
-        const bg = this.add.image(width / 2, height / 2, 'background');
-        const scaleX = width / bg.width;
-        bg.setScale(scaleX, scaleX); // Сохраняем пропорции при масштабировании
-        // Центрируем по вертикали если изображение слишком большое
-        if (bg.height * scaleX > height) {
-            bg.y = height / 2;
-        }
+        // Определяем наличие панели браузера и корректируем высоту
+        this.browserBarHeight = window.innerHeight - this.game.canvas.offsetHeight;
+        this.adjustedHeight = this.screenHeight - this.browserBarHeight;
         
-        // Заголовок
-        this.titleText = this.add.text(width / 2, this.isMobile ? height * 0.12 : height * 0.15, 'ЛИДЕРБОРД', {
+        // Фоновое изображение
+        this.add.image(this.screenWidth / 2, this.screenHeight / 2, 'background');
+        
+        // Затемнение для лучшей читаемости
+        this.add.rectangle(this.screenWidth / 2, this.screenHeight / 2, 
+            this.screenWidth, this.screenHeight, 0x000000, 0.7)
+            .setOrigin(0.5);
+        
+        // Заголовок с учетом высоты панели браузера
+        const titleY = Math.max(this.isMobile ? 70 : 90, this.browserBarHeight + 40);
+        
+        this.titleText = this.add.text(this.screenWidth / 2, titleY, 'ТАБЛИЦА РЕКОРДОВ', {
             fontFamily: 'unutterable',
-            fontSize: titleFontSize,
-            fill: '#ffffff',
+            fontSize: this.isMobile ? '36px' : '42px',
+            color: '#ffcc00',
             align: 'center',
             stroke: '#000000',
-            strokeThickness: 6
-        }).setOrigin(0.5);
-        
-        // Индикатор загрузки
-        this.loadingText = this.add.text(width / 2, height * 0.4, 'Загрузка лидерборда...', {
-            fontFamily: 'unutterable',
-            fontSize: this.isMobile ? '20px' : '24px',
-            fill: '#888888',
-            align: 'center'
+            strokeThickness: 5
         }).setOrigin(0.5);
         
         // Загружаем данные лидерборда
-        this.loadLeaderboard();
+        let scores = [];
+        const leaderboardData = localStorage.getItem('jumpGameLeaderboard');
         
-        // Кнопка "Назад"
-        this.backButton = this.add.text(width / 2, height * 0.85, 'НАЗАД', {
+        if (leaderboardData) {
+            scores = JSON.parse(leaderboardData);
+            
+            // Сортируем по убыванию счета
+            scores.sort((a, b) => b.score - a.score);
+            
+            // Ограничиваем до 20 лучших результатов
+            scores = scores.slice(0, 20);
+        }
+        
+        // Создаем таблицу результатов с учетом высоты панели браузера
+        const tableHeaderY = titleY + (this.isMobile ? 60 : 70);
+        const lineHeight = this.isMobile ? 30 : 35;
+        
+        // Заголовки колонок
+        this.add.text(this.screenWidth * 0.15, tableHeaderY, 'МЕСТО', {
             fontFamily: 'unutterable',
-            fontSize: btnFontSize,
-            fill: '#ffffff',
-            backgroundColor: '#666666',
+            fontSize: this.isMobile ? '22px' : '26px',
+            color: '#ffffff',
+            align: 'center',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5, 0.5);
+        
+        this.add.text(this.screenWidth * 0.4, tableHeaderY, 'ИГРОК', {
+            fontFamily: 'unutterable',
+            fontSize: this.isMobile ? '22px' : '26px',
+            color: '#ffffff',
+            align: 'center',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5, 0.5);
+        
+        this.add.text(this.screenWidth * 0.7, tableHeaderY, 'СЧЕТ', {
+            fontFamily: 'unutterable',
+            fontSize: this.isMobile ? '22px' : '26px',
+            color: '#ffffff',
+            align: 'center',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5, 0.5);
+        
+        // Определяем максимальное количество записей, которые поместятся на экране
+        const availableHeight = this.adjustedHeight - tableHeaderY - (this.isMobile ? 100 : 120);
+        const maxEntries = Math.min(Math.floor(availableHeight / lineHeight), scores.length, 20);
+        
+        // Выводим записи таблицы
+        for (let i = 0; i < maxEntries; i++) {
+            const entryY = tableHeaderY + (i + 1) * lineHeight;
+            const score = scores[i];
+            
+            // Определяем, является ли эта запись новым результатом игрока
+            const isPlayerNewScore = this.newScore && score.score === this.newScore;
+            const textColor = isPlayerNewScore ? '#ffff00' : (i < 3 ? '#88ffff' : '#ffffff');
+            
+            // Место
+            this.add.text(this.screenWidth * 0.15, entryY, `${i + 1}`, {
+                fontFamily: 'unutterable',
+                fontSize: this.isMobile ? '20px' : '24px',
+                color: textColor,
+                align: 'center',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5, 0.5);
+            
+            // Имя игрока (ограничиваем длину для мобильных устройств)
+            const displayName = this.isMobile && score.name.length > 10 
+                ? score.name.substring(0, 10) + '...'
+                : score.name;
+                
+            this.add.text(this.screenWidth * 0.4, entryY, displayName, {
+                fontFamily: 'unutterable',
+                fontSize: this.isMobile ? '20px' : '24px',
+                color: textColor,
+                align: 'center',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5, 0.5);
+            
+            // Счет
+            this.add.text(this.screenWidth * 0.7, entryY, `${score.score}`, {
+                fontFamily: 'unutterable',
+                fontSize: this.isMobile ? '20px' : '24px',
+                color: textColor,
+                align: 'center',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5, 0.5);
+        }
+        
+        // Кнопка "Вернуться назад" - с учетом высоты панели браузера
+        const backY = Math.min(
+            tableHeaderY + (maxEntries + 1.5) * lineHeight,
+            this.adjustedHeight - (this.isMobile ? 50 : 70)
+        );
+        
+        this.backButton = this.add.text(this.screenWidth / 2, backY, 'НАЗАД', {
+            fontFamily: 'unutterable',
+            fontSize: this.isMobile ? '24px' : '28px',
+            color: '#ffffff',
+            backgroundColor: '#883333',
             align: 'center',
             stroke: '#000000',
             strokeThickness: 4,
-            padding: {
-                x: this.isMobile ? 15 : 20,
-                y: this.isMobile ? 8 : 10
-            }
+            padding: { x: 20, y: 10 }
         }).setOrigin(0.5).setInteractive();
         
-        // Эффекты при наведении
+        // Эффекты для кнопки
         this.backButton.on('pointerover', () => {
-            this.backButton.setStyle({ fill: '#ffff00', backgroundColor: '#888888' });
+            this.backButton.setStyle({ color: '#ffff00', backgroundColor: '#aa3333' });
         });
         
         this.backButton.on('pointerout', () => {
-            this.backButton.setStyle({ fill: '#ffffff', backgroundColor: '#666666' });
+            this.backButton.setStyle({ color: '#ffffff', backgroundColor: '#883333' });
         });
         
-        // Действие при нажатии
         this.backButton.on('pointerdown', () => {
-            this.backButton.setStyle({ fill: '#ff8800' });
+            this.backButton.setStyle({ color: '#ff8800' });
             this.scene.start('StartScene');
         });
         
-        // Обработка изменения размера экрана
-        this.scale.on('resize', this.resizeScene, this);
+        // Обработчик изменения размера экрана
+        this.scale.on('resize', this.resize, this);
+        
+        // Добавляем слушатель события resize для отслеживания изменения высоты браузера
+        window.addEventListener('resize', () => {
+            this.updateBrowserBarHeight();
+            this.resize();
+        });
     }
     
-    resizeScene() {
-        if (!this.titleText || !this.backButton) return;
-        
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-        
-        // Обновляем фон
-        const bg = this.children.list.find(child => child.type === 'Image' && child.texture.key === 'background');
-        if (bg) {
-            bg.x = width / 2;
-            bg.y = height / 2;
-            const scaleX = width / bg.width;
-            bg.setScale(scaleX, scaleX);
-            if (bg.height * scaleX > height) {
-                bg.y = height / 2;
-            }
-        }
-        
-        // Обновляем заголовок
-        this.titleText.setPosition(width / 2, height * 0.15);
-        
-        // Обновляем текст загрузки
-        if (this.loadingText) {
-            this.loadingText.setPosition(width / 2, height * 0.4);
-        }
-        
-        // Обновляем кнопку назад
-        this.backButton.setPosition(width / 2, height * 0.85);
-        
-        // Обновляем позиции элементов лидерборда
-        this.repositionLeaderboardElements();
+    updateBrowserBarHeight() {
+        // Обновляем информацию о высоте панели браузера
+        this.browserBarHeight = window.innerHeight - this.game.canvas.offsetHeight;
+        this.adjustedHeight = this.screenHeight - this.browserBarHeight;
     }
     
-    repositionLeaderboardElements() {
-        if (!this.leaderboardElements || this.leaderboardElements.length === 0) return;
-        
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-        
-        // Если есть только сообщение "Пока нет результатов"
-        if (this.leaderboardElements.length === 1 && 
-            this.leaderboardElements[0].text === 'Пока нет результатов') {
-            this.leaderboardElements[0].setPosition(width / 2, height * 0.4);
-            return;
+    resize(gameSize) {
+        // Обновляем размеры экрана при изменении
+        if (gameSize) {
+            this.screenWidth = gameSize.width;
+            this.screenHeight = gameSize.height;
         }
         
-        // Если отображается таблица лидеров
-        // Заголовки таблицы (первые 5 элементов)
-        if (this.leaderboardElements.length >= 5) {
-            // Заголовки: МЕСТО, ИГРОК, ВЫСОТА, ВРЕМЯ, ДАТА
-            const columnWidths = [0.15, 0.30, 0.50, 0.65, 0.82]; // Пропорции от ширины экрана
-            
-            for (let i = 0; i < 5; i++) {
-                this.leaderboardElements[i].setPosition(width * columnWidths[i], height * 0.25);
-            }
-            
-            // Данные таблицы
-            if (this.leaderboardElements.length > 5) {
-                const rows = Math.floor((this.leaderboardElements.length - 5) / 5); // Количество строк
-                
-                for (let row = 0; row < rows; row++) {
-                    const y = height * 0.25 + (row + 1) * (height * 0.05);
-                    
-                    for (let col = 0; col < 5; col++) {
-                        const index = 5 + row * 5 + col;
-                        if (index < this.leaderboardElements.length) {
-                            this.leaderboardElements[index].setPosition(width * columnWidths[col], y);
-                        }
-                    }
-                }
-            }
-        }
+        // Обновляем информацию о панели браузера
+        this.updateBrowserBarHeight();
+        
+        // Обновляем позицию заголовка с учетом высоты панели браузера
+        const titleY = Math.max(this.isMobile ? 70 : 90, this.browserBarHeight + 40);
+        this.titleText.setPosition(this.screenWidth / 2, titleY);
+        
+        // Обновляем позицию кнопки "Назад"
+        const tableHeaderY = titleY + (this.isMobile ? 60 : 70);
+        const lineHeight = this.isMobile ? 30 : 35;
+        
+        // Определяем количество записей в таблице
+        const tableElements = this.children.list.filter(child => 
+            child.type === 'Text' && 
+            child !== this.titleText && 
+            child !== this.backButton
+        );
+        
+        // Примерное количество строк в таблице (без заголовков)
+        const entriesCount = Math.floor((tableElements.length - 3) / 3);
+        
+        // Обновляем позицию кнопки "Вернуться назад"
+        const backY = Math.min(
+            tableHeaderY + (entriesCount + 1.5) * lineHeight,
+            this.adjustedHeight - (this.isMobile ? 50 : 70)
+        );
+        
+        this.backButton.setPosition(this.screenWidth / 2, backY);
     }
     
     // Очищаем все UI элементы лидерборда

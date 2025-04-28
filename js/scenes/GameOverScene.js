@@ -15,6 +15,12 @@ class GameOverScene extends Phaser.Scene {
     }
 
     create() {
+        // Получаем передаваемые данные со сцены игры
+        const params = this.scene.settings.data || {};
+        this.score = params.score || 0;
+        this.height = params.height || 0;
+        this.gameTime = params.gameTime || 0;
+        
         // Определяем, является ли устройство мобильным
         this.isMobile = !this.sys.game.device.os.desktop;
         
@@ -22,305 +28,269 @@ class GameOverScene extends Phaser.Scene {
         this.screenWidth = this.cameras.main.width;
         this.screenHeight = this.cameras.main.height;
         
-        // Фон
+        // Определяем наличие панели браузера и корректируем высоту
+        this.browserBarHeight = window.innerHeight - this.game.canvas.offsetHeight;
+        this.adjustedHeight = this.screenHeight - this.browserBarHeight;
+        
+        // Фоновое изображение
         this.add.image(this.screenWidth / 2, this.screenHeight / 2, 'background');
         
-        // Заголовок "Игра окончена"
-        this.titleText = this.add.text(this.screenWidth / 2, this.isMobile ? 80 : 120, 'ИГРА ОКОНЧЕНА', {
+        // Затемнение для лучшей читаемости
+        this.add.rectangle(this.screenWidth / 2, this.screenHeight / 2, 
+            this.screenWidth, this.screenHeight, 0x000000, 0.7)
+            .setOrigin(0.5);
+        
+        // Заголовок с учетом высоты панели браузера
+        const titleY = Math.max(this.isMobile ? 70 : 90, this.browserBarHeight + 40);
+        
+        this.titleText = this.add.text(this.screenWidth / 2, titleY, 'ИГРА ОКОНЧЕНА', {
             fontFamily: 'unutterable',
-            fontSize: this.isMobile ? '42px' : '58px',
-            color: '#ff0000',
+            fontSize: this.isMobile ? '36px' : '48px',
+            color: '#ff3333',
             align: 'center',
             stroke: '#000000',
-            strokeThickness: 6
+            strokeThickness: 5
         }).setOrigin(0.5);
         
-        // Отображаем счет
-        this.scoreText = this.add.text(this.screenWidth / 2, this.isMobile ? 150 : 200, `Предел твоих возможностей: ${this.score}`, {
+        // Отображение счета
+        const scoreY = titleY + (this.isMobile ? 70 : 90);
+        
+        this.add.text(this.screenWidth / 2, scoreY, `СЧЁТ: ${this.score}`, {
+            fontFamily: 'unutterable',
+            fontSize: this.isMobile ? '28px' : '36px',
+            color: '#ffcc00',
+            align: 'center',
+            stroke: '#000000',
+            strokeThickness: 4
+        }).setOrigin(0.5);
+        
+        // Отображение высоты
+        const heightY = scoreY + (this.isMobile ? 50 : 60);
+        
+        this.add.text(this.screenWidth / 2, heightY, `ВЫСОТА: ${this.height} м`, {
             fontFamily: 'unutterable',
             fontSize: this.isMobile ? '24px' : '32px',
-            color: '#ffffff',
-            align: 'center',
-            stroke: '#000000',
-            strokeThickness: 4
-        }).setOrigin(0.5);
-        
-        // Отображаем время прохождения
-        this.timeText = this.add.text(this.screenWidth / 2, this.isMobile ? 190 : 240, `Время: ${this.formatTime(this.gameTime)}`, {
-            fontFamily: 'unutterable',
-            fontSize: this.isMobile ? '22px' : '28px',
             color: '#88ffff',
-            align: 'center',
-            stroke: '#000000',
-            strokeThickness: 4
-        }).setOrigin(0.5);
-        
-        // Получаем имя игрока и проверяем рейтинг в лидерборде
-        const nickname = this.getCookie('playerNickname') || 'Аноним';
-        const playerY = this.isMobile ? 230 : 280; // Позиция для имени игрока
-        
-        // Загружаем текущий лидерборд для проверки позиции
-        let scores = [];
-        const leaderboardData = localStorage.getItem('jumpGameLeaderboard');
-        if (leaderboardData) {
-            scores = JSON.parse(leaderboardData);
-        }
-        
-        // Определяем, нужно ли показывать сообщение о рекорде
-        let showRecordMessage = false;
-        let recordMessage = '';
-        let recordY = this.isMobile ? 270 : 320; // Позиция для сообщения о рекорде
-        
-        if (scores.length > 0) {
-            // Находим позицию текущего результата
-            const position = scores.findIndex(score => 
-                score.name === nickname && score.score === this.score);
-            
-            if (position >= 0) {
-                showRecordMessage = true;
-                if (position === 0) {
-                    recordMessage = 'НОВЫЙ РЕКОРД! 🏆';
-                } else {
-                    recordMessage = `Позиция в рейтинге: ${position + 1}`;
-                }
-            }
-        }
-        
-        // Отображаем имя игрока
-        this.playerText = this.add.text(this.screenWidth / 2, playerY, `Игрок: ${nickname}`, {
-            fontFamily: 'unutterable',
-            fontSize: this.isMobile ? '20px' : '24px',
-            color: '#ffff88',
             align: 'center',
             stroke: '#000000',
             strokeThickness: 3
         }).setOrigin(0.5);
         
-        // Отображаем сообщение о рекорде, если нужно
-        if (showRecordMessage) {
-            this.recordText = this.add.text(this.screenWidth / 2, recordY, recordMessage, {
-                fontFamily: 'unutterable',
-                fontSize: recordMessage.includes('НОВЫЙ РЕКОРД') ? 
-                    (this.isMobile ? '28px' : '32px') : 
-                    (this.isMobile ? '20px' : '24px'),
-                color: recordMessage.includes('НОВЫЙ РЕКОРД') ? '#ffff00' : '#aaaaff',
-                align: 'center',
-                stroke: '#000000',
-                strokeThickness: 4
-            }).setOrigin(0.5);
-        }
+        // Отображение времени игры
+        const timeY = heightY + (this.isMobile ? 50 : 60);
         
-        // Кнопки - смещаем их вниз, если есть сообщение о рекорде
-        const buttonsStartY = showRecordMessage ? 
-                                (this.isMobile ? 320 : 380) : 
-                                (this.isMobile ? 290 : 350);
+        this.add.text(this.screenWidth / 2, timeY, `ВРЕМЯ: ${this.formatTime(this.gameTime)}`, {
+            fontFamily: 'unutterable',
+            fontSize: this.isMobile ? '24px' : '32px',
+            color: '#88ffff',
+            align: 'center',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5);
         
-        // Размер кнопок и отступы между ними
-        const buttonFontSize = this.isMobile ? '22px' : '24px';
-        const buttonPadding = this.isMobile ? { x: 15, y: 8 } : { x: 20, y: 10 };
-        const buttonSpacing = this.isMobile ? 50 : 60;
+        // Кнопки с учетом высоты панели браузера
+        const buttonsBaseY = Math.min(
+            timeY + (this.isMobile ? 80 : 100),
+            this.adjustedHeight - (this.isMobile ? 160 : 180)
+        );
+        
+        const buttonSpacing = this.isMobile ? 60 : 70;
         
         // Кнопка "Играть снова"
-        this.playAgainButton = this.add.text(this.screenWidth / 2, buttonsStartY, 'Я МОГУ БОЛЬШЕ!', {
+        this.playAgainButton = this.add.text(this.screenWidth / 2, buttonsBaseY, 'ИГРАТЬ СНОВА', {
             fontFamily: 'unutterable',
-            fontSize: buttonFontSize,
+            fontSize: this.isMobile ? '24px' : '28px',
             color: '#ffffff',
             backgroundColor: '#338833',
             align: 'center',
             stroke: '#000000',
             strokeThickness: 4,
-            padding: buttonPadding
+            padding: { x: 20, y: 10 }
         }).setOrigin(0.5).setInteractive();
         
-        // Кнопка "Лидерборд"
-        this.leaderboardButton = this.add.text(this.screenWidth / 2, buttonsStartY + buttonSpacing, 'ПОСМОТРЕТЬ РЕКОРДЫ', {
+        // Кнопка "Таблица рекордов"
+        this.leaderboardButton = this.add.text(this.screenWidth / 2, buttonsBaseY + buttonSpacing, 'ТАБЛИЦА РЕКОРДОВ', {
             fontFamily: 'unutterable',
-            fontSize: buttonFontSize,
+            fontSize: this.isMobile ? '24px' : '28px',
             color: '#ffffff',
-            backgroundColor: '#883388',
+            backgroundColor: '#333388',
             align: 'center',
             stroke: '#000000',
             strokeThickness: 4,
-            padding: buttonPadding
+            padding: { x: 20, y: 10 }
         }).setOrigin(0.5).setInteractive();
         
         // Кнопка "Главное меню"
-        this.menuButton = this.add.text(this.screenWidth / 2, buttonsStartY + buttonSpacing * 2, 'Я не могу больше :(', {
+        this.menuButton = this.add.text(this.screenWidth / 2, buttonsBaseY + buttonSpacing * 2, 'ГЛАВНОЕ МЕНЮ', {
             fontFamily: 'unutterable',
-            fontSize: buttonFontSize,
+            fontSize: this.isMobile ? '24px' : '28px',
             color: '#ffffff',
-            backgroundColor: '#666666',
+            backgroundColor: '#883333',
             align: 'center',
             stroke: '#000000',
             strokeThickness: 4,
-            padding: buttonPadding
+            padding: { x: 20, y: 10 }
         }).setOrigin(0.5).setInteractive();
         
-        // Эффекты при наведении
-        this.playAgainButton.on('pointerover', () => {
-            this.playAgainButton.setStyle({ color: '#ffff00', backgroundColor: '#33aa33' });
-        });
+        // Эффекты для кнопок
+        this.setupButtonInteractivity(this.playAgainButton, '#338833', '#55aa55');
+        this.setupButtonInteractivity(this.leaderboardButton, '#333388', '#5555aa');
+        this.setupButtonInteractivity(this.menuButton, '#883333', '#aa5555');
         
-        this.playAgainButton.on('pointerout', () => {
-            this.playAgainButton.setStyle({ color: '#ffffff', backgroundColor: '#338833' });
-        });
+        // Сохраняем результат игры в лидерборд
+        this.saveScoreToLeaderboard();
         
-        this.leaderboardButton.on('pointerover', () => {
-            this.leaderboardButton.setStyle({ color: '#ffff00', backgroundColor: '#aa33aa' });
-        });
-        
-        this.leaderboardButton.on('pointerout', () => {
-            this.leaderboardButton.setStyle({ color: '#ffffff', backgroundColor: '#883388' });
-        });
-        
-        this.menuButton.on('pointerover', () => {
-            this.menuButton.setStyle({ color: '#ffff00', backgroundColor: '#888888' });
-        });
-        
-        this.menuButton.on('pointerout', () => {
-            this.menuButton.setStyle({ color: '#ffffff', backgroundColor: '#666666' });
-        });
-        
-        // Действия при нажатии
-        this.playAgainButton.on('pointerdown', () => {
-            this.playAgainButton.setStyle({ color: '#ff8800' });
-            this.scene.start('CharacterSelectScene');
-        });
-        
-        this.leaderboardButton.on('pointerdown', () => {
-            this.leaderboardButton.setStyle({ color: '#ff8800' });
-            this.scene.start('LeaderboardScene', { score: this.score, gameTime: this.gameTime });
-        });
-        
-        this.menuButton.on('pointerdown', () => {
-            this.menuButton.setStyle({ color: '#ff8800' });
-            this.scene.start('StartScene');
-        });
-        
-        // Добавляем обработчик изменения размера экрана
+        // Обработчик изменения размера экрана
         this.scale.on('resize', this.resize, this);
+        
+        // Добавляем слушатель события resize для отслеживания изменения высоты браузера
+        window.addEventListener('resize', () => {
+            this.updateBrowserBarHeight();
+            this.resize();
+        });
     }
     
-    resize(gameSize) {
-        if (!gameSize) return;
+    setupButtonInteractivity(button, baseColor, hoverColor) {
+        button.on('pointerover', () => {
+            button.setStyle({ color: '#ffff00', backgroundColor: hoverColor });
+        });
         
-        this.screenWidth = gameSize.width;
-        this.screenHeight = gameSize.height;
+        button.on('pointerout', () => {
+            button.setStyle({ color: '#ffffff', backgroundColor: baseColor });
+        });
         
-        if (this.titleText) {
-            this.titleText.setPosition(this.screenWidth / 2, this.isMobile ? 80 : 120);
-        }
-        
-        if (this.scoreText) {
-            this.scoreText.setPosition(this.screenWidth / 2, this.isMobile ? 150 : 200);
-        }
-        
-        if (this.timeText) {
-            this.timeText.setPosition(this.screenWidth / 2, this.isMobile ? 190 : 240);
-        }
-        
-        if (this.playerText) {
-            this.playerText.setPosition(this.screenWidth / 2, this.isMobile ? 230 : 280);
-        }
-        
-        if (this.recordText) {
-            this.recordText.setPosition(this.screenWidth / 2, this.isMobile ? 270 : 320);
-        }
-        
-        const buttonsStartY = this.recordText ? 
-                               (this.isMobile ? 320 : 380) : 
-                               (this.isMobile ? 290 : 350);
-        
-        const buttonSpacing = this.isMobile ? 50 : 60;
-        
-        if (this.playAgainButton) {
-            this.playAgainButton.setPosition(this.screenWidth / 2, buttonsStartY);
-        }
-        
-        if (this.leaderboardButton) {
-            this.leaderboardButton.setPosition(this.screenWidth / 2, buttonsStartY + buttonSpacing);
-        }
-        
-        if (this.menuButton) {
-            this.menuButton.setPosition(this.screenWidth / 2, buttonsStartY + buttonSpacing * 2);
-        }
+        button.on('pointerdown', () => {
+            button.setStyle({ color: '#ff8800' });
+            
+            if (button === this.playAgainButton) {
+                this.scene.start('GameScene');
+            } else if (button === this.leaderboardButton) {
+                this.scene.start('LeaderboardScene', {
+                    score: this.score,
+                    height: this.height,
+                    gameTime: this.gameTime
+                });
+            } else if (button === this.menuButton) {
+                this.scene.start('StartScene');
+            }
+        });
     }
     
-    saveScore() {
+    saveScoreToLeaderboard() {
+        // Получаем имя игрока из куки или используем "Аноним"
         const nickname = this.getCookie('playerNickname') || 'Аноним';
         
-        // Если dreamlo доступен, отправляем результат на сервер
-        if (typeof dreamlo !== 'undefined') {
-            try {
-                // Ключи для dreamlo
-                const publicKey = '680ed22b8f40bb18ac70df27';
-                const privateKey = 'WJRxP_ErZ0uLBvmSL6uXBgdwIykOMp6kmqlN69KlSiuA';
-                const useHttps = false;
-                
-                console.log('Инициализация dreamlo...');
-                // Инициализируем dreamlo
-                dreamlo.initialize(publicKey, privateKey, useHttps);
-                
-                // Создаем уникальное имя, добавляя время к никнейму
-                const uniqueName = `${nickname}`;
-                
-                const scoreData = {
-                    name: uniqueName,
-                    points: this.score,
-                    seconds: Math.floor(this.gameTime), // Убедимся, что отправляем целое число секунд
-                    text: nickname // Сохраняем оригинальный никнейм в поле text
-                };
-                
-                console.log('Отправка результата в dreamlo:', scoreData);
-                console.log('Отправляемое время в секундах:', Math.floor(this.gameTime));
-                
-                // Отправляем счёт на сервер
-                dreamlo.addScore(
-                    scoreData, 
-                    dreamlo.ScoreFormat.Object, 
-                    dreamlo.SortOrder.PointsDescending, 
-                    true
-                )
-                .then(scores => {
-                    console.log('Результат успешно добавлен в dreamlo');
-                    console.log('Количество записей в ответе:', scores.length);
-                    
-                    // Проверяем, есть ли в ответе наша новая запись
-                    if (scores && scores.length > 0) {
-                        const ourScore = scores.find(s => s.name === uniqueName);
-                        if (ourScore) {
-                            console.log('Наша запись в ответе:', ourScore);
-                            console.log('Время в ответе (seconds):', ourScore.seconds);
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Ошибка добавления результата в dreamlo:', error);
-                    console.error('Полное сообщение об ошибке:', error.message);
-                });
-            } catch (e) {
-                console.error('Ошибка при инициализации dreamlo в GameOverScene:', e);
+        // Получаем текущий лидерборд
+        let leaderboardData = [];
+        const savedData = localStorage.getItem('jumpGameLeaderboard');
+        if (savedData) {
+            leaderboardData = JSON.parse(savedData);
+        }
+        
+        // Проверяем, существует ли уже такой результат
+        const existingIndex = leaderboardData.findIndex(
+            item => item.name === nickname && item.score === this.score
+        );
+        
+        // Если нет, добавляем новый результат
+        if (existingIndex === -1) {
+            leaderboardData.push({
+                name: nickname,
+                score: this.score,
+                height: this.height,
+                date: new Date().toLocaleDateString(),
+                gameTime: this.gameTime
+            });
+            
+            // Сортируем по убыванию счета
+            leaderboardData.sort((a, b) => b.score - a.score);
+            
+            // Ограничиваем до 20 лучших результатов
+            if (leaderboardData.length > 20) {
+                leaderboardData = leaderboardData.slice(0, 20);
             }
-        } else {
-            console.error('Библиотека dreamlo не загружена, результат не сохранен');
+            
+            // Сохраняем обновленный лидерборд
+            localStorage.setItem('jumpGameLeaderboard', JSON.stringify(leaderboardData));
         }
     }
     
     getCookie(name) {
-        const nameEQ = name + '=';
-        const ca = document.cookie.split(';');
-        for (let i = 0; i < ca.length; i++) {
-            let c = ca[i];
-            while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-            if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
-        }
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
         return null;
     }
-
-    formatTime(seconds) {
-        const minutes = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
+    
+    updateBrowserBarHeight() {
+        // Обновляем информацию о высоте панели браузера
+        this.browserBarHeight = window.innerHeight - this.game.canvas.offsetHeight;
+        this.adjustedHeight = this.screenHeight - this.browserBarHeight;
+    }
+    
+    resize(gameSize) {
+        // Обновляем размеры экрана при изменении
+        if (gameSize) {
+            this.screenWidth = gameSize.width;
+            this.screenHeight = gameSize.height;
+        }
         
-        return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        // Обновляем информацию о панели браузера
+        this.updateBrowserBarHeight();
+        
+        // Обновляем позицию заголовка с учетом высоты панели браузера
+        const titleY = Math.max(this.isMobile ? 70 : 90, this.browserBarHeight + 40);
+        this.titleText.setPosition(this.screenWidth / 2, titleY);
+        
+        // Получаем все текстовые элементы
+        const texts = this.children.list.filter(child => child.type === 'Text');
+        
+        // Находим элементы с текстом счета, высоты и времени
+        const scoreText = texts.find(text => text.text.includes('СЧЁТ'));
+        const heightText = texts.find(text => text.text.includes('ВЫСОТА'));
+        const timeText = texts.find(text => text.text.includes('ВРЕМЯ'));
+        
+        // Обновляем позиции элементов
+        if (scoreText) {
+            const scoreY = titleY + (this.isMobile ? 70 : 90);
+            scoreText.setPosition(this.screenWidth / 2, scoreY);
+            
+            if (heightText) {
+                const heightY = scoreY + (this.isMobile ? 50 : 60);
+                heightText.setPosition(this.screenWidth / 2, heightY);
+                
+                if (timeText) {
+                    const timeY = heightY + (this.isMobile ? 50 : 60);
+                    timeText.setPosition(this.screenWidth / 2, timeY);
+                    
+                    // Обновляем позиции кнопок
+                    const buttonsBaseY = Math.min(
+                        timeY + (this.isMobile ? 80 : 100),
+                        this.adjustedHeight - (this.isMobile ? 160 : 180)
+                    );
+                    
+                    const buttonSpacing = this.isMobile ? 60 : 70;
+                    
+                    if (this.playAgainButton) {
+                        this.playAgainButton.setPosition(this.screenWidth / 2, buttonsBaseY);
+                    }
+                    
+                    if (this.leaderboardButton) {
+                        this.leaderboardButton.setPosition(this.screenWidth / 2, buttonsBaseY + buttonSpacing);
+                    }
+                    
+                    if (this.menuButton) {
+                        this.menuButton.setPosition(this.screenWidth / 2, buttonsBaseY + buttonSpacing * 2);
+                    }
+                }
+            }
+        }
+    }
+    
+    formatTime(milliseconds) {
+        const totalSeconds = Math.floor(milliseconds / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
     }
 } 
