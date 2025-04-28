@@ -219,11 +219,18 @@ class GameOverScene extends Phaser.Scene {
                 console.log('Отправка результата в лидерборд:', scoreData);
                 console.log('Отправляемое время в секундах:', Math.floor(this.gameTime));
                 
+                // Проверяем наличие необходимых параметров 
+                const format = leaderboardService.ScoreFormat && leaderboardService.ScoreFormat.Object ? 
+                    leaderboardService.ScoreFormat.Object : 'object';
+                
+                const sortOrder = leaderboardService.SortOrder && leaderboardService.SortOrder.PointsDescending ? 
+                    leaderboardService.SortOrder.PointsDescending : 'points_desc';
+                
                 // Отправляем счёт на сервер
                 leaderboardService.addScore(
                     scoreData, 
-                    leaderboardService.ScoreFormat.Object, 
-                    leaderboardService.SortOrder.PointsDescending, 
+                    format, 
+                    sortOrder, 
                     true
                 )
                 .then(scores => {
