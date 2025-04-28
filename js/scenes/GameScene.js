@@ -528,6 +528,9 @@ class GameScene extends Phaser.Scene {
             group.getChildren().forEach(platform => {
                 if (platform.y > this.player.y + 500) {
                     if (platform.item) {
+                        if (platform.item.glow && platform.item.glow.active) {
+                            platform.item.glow.destroy();
+                        }
                         platform.item.destroy();
                     }
                     platform.destroy();
@@ -627,6 +630,9 @@ class GameScene extends Phaser.Scene {
                 if (item.y > cleanupThreshold) {
                     if (item.platform) {
                         item.platform.item = null;
+                    }
+                    if (item.glow && item.glow.active) {
+                        item.glow.destroy();
                     }
                     item.destroy();
                 }
@@ -1938,6 +1944,9 @@ class GameScene extends Phaser.Scene {
                 this.container.destroy();
             }
             if (this.item) {
+                if (this.item.glow && this.item.glow.active) {
+                    this.item.glow.destroy();
+                }
                 this.item.destroy();
             }
             originalDestroy.call(this);
