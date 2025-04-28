@@ -4,7 +4,7 @@
 class LeaderboardService {
   constructor() {
     // URL API для таблицы лидеров
-    this.apiUrl = 'http://localhost:3000/api/scores';
+    this.apiUrl = 'http://kiss2-stage-fra1-hackaton-4.getkisskiss.com:3000/api/scores';
   }
 
   /**
