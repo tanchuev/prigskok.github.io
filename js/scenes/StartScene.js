@@ -22,6 +22,52 @@ class StartScene extends Phaser.Scene {
         });
         title.setOrigin(0.5);
         
+        // Отображаем имя игрока, если оно есть
+        const nickname = this.getCookie('playerNickname');
+        if (nickname) {
+            this.add.text(350, 250, `Игрок: ${nickname}`, {
+                fontFamily: 'unutterable',
+                fontSize: '24px',
+                fill: '#ffff88',
+                stroke: '#000000',
+                strokeThickness: 3
+            }).setOrigin(0.5, 0.5);
+            
+            // Кнопка редактирования никнейма
+            const editButton = this.add.text(480, 250, 'ИЗМЕНИТЬ', {
+                fontFamily: 'unutterable',
+                fontSize: '18px',
+                fill: '#ffffff',
+                backgroundColor: '#555555',
+                stroke: '#000000',
+                strokeThickness: 2,
+                padding: {
+                    x: 10,
+                    y: 5
+                }
+            });
+            editButton.setOrigin(0, 0.5);
+            editButton.setInteractive();
+            
+            // Эффекты при наведении на кнопку редактирования
+            editButton.on('pointerover', () => {
+                editButton.setStyle({ fill: '#ffff00', backgroundColor: '#777777' });
+            });
+            
+            editButton.on('pointerout', () => {
+                editButton.setStyle({ fill: '#ffffff', backgroundColor: '#555555' });
+            });
+            
+            // Действие при нажатии - переход к экрану ввода имени
+            editButton.on('pointerdown', () => {
+                editButton.setStyle({ fill: '#ff8800' });
+            });
+            
+            editButton.on('pointerup', () => {
+                this.scene.start('NicknameScene');
+            });
+        }
+        
         // Кнопка начала игры
         const startButton = this.add.text(400, 320, 'НАЧАТЬ ИГРУ', {
             fontFamily: 'unutterable',
@@ -39,7 +85,7 @@ class StartScene extends Phaser.Scene {
         startButton.setInteractive();
         
         // Кнопка лидерборда
-        const leaderboardButton = this.add.text(400, 380, 'ЛИДЕРБОРД', {
+        const leaderboardButton = this.add.text(400, 400, 'ЛИДЕРБОРД', {
             fontFamily: 'unutterable',
             fontSize: '28px',
             fill: '#ffffff',
@@ -104,17 +150,14 @@ class StartScene extends Phaser.Scene {
         
         // Инструкции
         const instructions = [
-            'Управление:',
-            '- На компьютере: используйте стрелки для движения',
-            '- На мобильных: нажимайте на левую/правую/верхнюю части экрана',
-            'Цель: поднимайтесь как можно выше, избегая затопления'
+            '- Если вы читаете это, то знайте, что я спал по 4 часа в день, пока делал эту игру',
         ];
         
         // Создаем текст с инструкциями
         for (let i = 0; i < instructions.length; i++) {
             this.add.text(400, 490 + i * 30, instructions[i], {
                 fontFamily: 'unutterable',
-                fontSize: '18px',
+                fontSize: '14px',
                 fill: '#888888',
                 stroke: '#000000',
                 strokeThickness: 2
@@ -130,18 +173,6 @@ class StartScene extends Phaser.Scene {
             yoyo: true,
             repeat: -1
         });
-        
-        // Отображаем имя игрока, если оно есть
-        const nickname = this.getCookie('playerNickname');
-        if (nickname) {
-            this.add.text(400, 250, `Игрок: ${nickname}`, {
-                fontFamily: 'unutterable',
-                fontSize: '24px',
-                fill: '#ffff88',
-                stroke: '#000000',
-                strokeThickness: 3
-            }).setOrigin(0.5);
-        }
     }
     
     getCookie(name) {

@@ -2,14 +2,21 @@ class NicknameScene extends Phaser.Scene {
     constructor() {
         super('NicknameScene');
         this.nickname = '';
+        this.isEditing = false;
+    }
+    
+    init(data) {
+        // Определяем, это редактирование имени или первичная установка
+        this.isEditing = this.getCookie('playerNickname') !== null;
     }
 
     create() {
         // Фон
         this.add.image(400, 300, 'background');
         
-        // Заголовок
-        this.add.text(400, 150, 'КАК ТЕБЯ ЗОВУТ?', {
+        // Заголовок - меняем в зависимости от контекста
+        const headerText = this.isEditing ? 'ИЗМЕНИТЬ ИМЯ' : 'КАК ТЕБЯ ЗОВУТ?';
+        this.add.text(400, 150, headerText, {
             fontFamily: 'unutterable',
             fontSize: '48px',
             fill: '#ffffff',
@@ -47,8 +54,9 @@ class NicknameScene extends Phaser.Scene {
             this.openKeyboard();
         });
         
-        // Кнопка "Продолжить"
-        const continueButton = this.add.text(400, 350, 'ПРОДОЛЖИТЬ', {
+        // Кнопка "Продолжить" - меняем текст в зависимости от контекста
+        const continueText = this.isEditing ? 'СОХРАНИТЬ' : 'ПРОДОЛЖИТЬ';
+        const continueButton = this.add.text(400, 350, continueText, {
             fontFamily: 'unutterable',
             fontSize: '28px',
             fill: '#ffffff',
@@ -92,6 +100,37 @@ class NicknameScene extends Phaser.Scene {
                 }, 300);
             }
         });
+        
+        // Кнопка "Назад" (только при редактировании)
+        if (this.isEditing) {
+            const backButton = this.add.text(400, 410, 'ОТМЕНА', {
+                fontFamily: 'unutterable',
+                fontSize: '22px',
+                fill: '#ffffff',
+                backgroundColor: '#666666',
+                stroke: '#000000',
+                strokeThickness: 3,
+                padding: {
+                    x: 15,
+                    y: 8
+                }
+            }).setOrigin(0.5).setInteractive();
+            
+            // Эффекты при наведении
+            backButton.on('pointerover', () => {
+                backButton.setStyle({ fill: '#ffff00', backgroundColor: '#888888' });
+            });
+            
+            backButton.on('pointerout', () => {
+                backButton.setStyle({ fill: '#ffffff', backgroundColor: '#666666' });
+            });
+            
+            // Действие при нажатии
+            backButton.on('pointerdown', () => {
+                backButton.setStyle({ fill: '#ff8800' });
+                this.scene.start('StartScene');
+            });
+        }
         
         // Слушаем нажатия клавиш
         this.input.keyboard.on('keydown', (event) => {

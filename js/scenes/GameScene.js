@@ -975,7 +975,7 @@ class GameScene extends Phaser.Scene {
         
         if (this.sys.game.device.os.desktop) {
             const controlHint = this.add.text(16, 60, 
-                'Управление: ←→ - движение, ПРОБЕЛ - прыжок, S - супер-прыжок', { 
+                'Управление: ←→ - движение, ПРОБЕЛ - прыжок', { 
                 fontFamily: 'unutterable',
                 fontSize: '16px', 
                 fill: '#fff',
