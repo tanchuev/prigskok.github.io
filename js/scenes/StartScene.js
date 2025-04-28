@@ -39,7 +39,7 @@ class StartScene extends Phaser.Scene {
         startButton.setInteractive();
         
         // Кнопка лидерборда
-        const leaderboardButton = this.add.text(400, 380, 'РЕКОРДЫ', {
+        const leaderboardButton = this.add.text(400, 380, 'ЛИДЕРБОРД', {
             fontFamily: 'unutterable',
             fontSize: '28px',
             fill: '#ffffff',

@@ -16,7 +16,7 @@ class LeaderboardScene extends Phaser.Scene {
         this.add.image(400, 300, 'background');
         
         // Заголовок
-        this.add.text(400, 80, 'РЕКОРДЫ', {
+        this.add.text(400, 80, 'ЛИДЕРБОРД', {
             fontFamily: 'unutterable',
             fontSize: '48px',
             fill: '#ffffff',
