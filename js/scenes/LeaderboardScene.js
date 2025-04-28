@@ -6,7 +6,7 @@ class LeaderboardScene extends Phaser.Scene {
         // Инициализация dreamlo
         this.dreamloPublicKey = "680ed22b8f40bb18ac70df27";
         this.dreamloPrivateKey ="WJRxP_ErZ0uLBvmSL6uXBgdwIykOMp6kmqlN69KlSiuA";
-        this.useHttps = true;
+        this.useHttps = false;
         
         // Для хранения UI элементов лидерборда
         this.leaderboardElements = [];
