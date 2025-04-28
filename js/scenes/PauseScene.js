@@ -11,11 +11,16 @@ class PauseScene extends Phaser.Scene {
     }
 
     create() {
-        // Полупрозрачный черный фон
-        this.overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.7);
+        // Получаем размеры игрового окна
+        const { width, height } = this.scale.gameSize;
+        const centerX = width / 2;
+        const centerY = height / 2;
+        
+        // Полупрозрачный черный фон на весь экран
+        this.overlay = this.add.rectangle(centerX, centerY, width, height, 0x000000, 0.7);
         
         // Заголовок "Пауза"
-        this.add.text(400, 200, 'ПАУЗА', {
+        this.add.text(centerX, centerY - 100, 'ПАУЗА', {
             fontFamily: 'unutterable',
             fontSize: '64px',
             color: '#ffffff',
@@ -25,7 +30,7 @@ class PauseScene extends Phaser.Scene {
         }).setOrigin(0.5);
         
         // Кнопка "Продолжить"
-        const continueButton = this.add.text(400, 300, 'Вернуться', {
+        const continueButton = this.add.text(centerX, centerY, 'Вернуться', {
             fontFamily: 'unutterable',
             fontSize: '32px',
             color: '#ffffff',
@@ -40,7 +45,7 @@ class PauseScene extends Phaser.Scene {
         }).setOrigin(0.5).setInteractive();
         
         // Кнопка "Главное меню"
-        const menuButton = this.add.text(400, 380, 'Сдаться', {
+        const menuButton = this.add.text(centerX, centerY + 80, 'Сдаться', {
             fontFamily: 'unutterable',
             fontSize: '32px',
             color: '#ffffff',
@@ -96,5 +101,21 @@ class PauseScene extends Phaser.Scene {
             this.scene.resume(this.gameScene);
             this.scene.stop();
         });
+        
+        // Обработка изменения размера окна
+        this.scale.on('resize', this.resize, this);
+    }
+    
+    resize() {
+        // Получаем новые размеры игрового окна
+        const { width, height } = this.scale.gameSize;
+        const centerX = width / 2;
+        const centerY = height / 2;
+        
+        // Обновляем размер и позицию оверлея
+        if (this.overlay) {
+            this.overlay.setSize(width, height);
+            this.overlay.setPosition(centerX, centerY);
+        }
     }
 } 

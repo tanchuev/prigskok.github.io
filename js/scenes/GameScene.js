@@ -288,10 +288,10 @@ class GameScene extends Phaser.Scene {
     }
 
     create() {
-        this.physics.world.setBounds(0, -95000, 800, 96500); // Изменяем верхнюю границу для соответствия границам камеры
+        this.physics.world.setBounds(0, -95000, 800, 98500); // Изменяем верхнюю границу для соответствия границам камеры
         this.physics.world.setBoundsCollision(true, true, false, true); // Отключаем коллизию только с верхней границей
 
-        this.bg = this.add.tileSprite(400, 300, 800, 600, 'bg');
+        this.bg = this.add.tileSprite(400, 640, 800, 1280, 'bg');
         this.bg.setScrollFactor(0);
         
         // Группы платформ
@@ -349,9 +349,9 @@ class GameScene extends Phaser.Scene {
         
         this.physics.add.existing(this.player);
         
-        const bodyWidth = 500;
+        const bodyWidth = 400;
         const bodyHeight = 700;
-        const bodyOffsetX_Left = -150;
+        const bodyOffsetX_Left = -50;
         const bodyOffsetY = -bodyHeight;
 
         this.player.body.setSize(bodyWidth, bodyHeight);
@@ -460,11 +460,11 @@ class GameScene extends Phaser.Scene {
     }
 
     setupCamera() {
-        this.cameras.main.setBounds(0, -95000, 800, 100000);
+        this.cameras.main.setBounds(0, -95000, 800, 102000);
         this.cameras.main.startFollow(this.player, false);
         
-        this.cameras.main.setDeadzone(400, 200);
-        this.cameras.main.setFollowOffset(0, 100);
+        this.cameras.main.setDeadzone(400, 300);
+        this.cameras.main.setFollowOffset(0, 200);
         
         this.lastPlatformCheckpoint = 0;
         this.lastCleanupCheckpoint = 0;
@@ -499,7 +499,7 @@ class GameScene extends Phaser.Scene {
         this.scoreText.setText('Предел твоих возможностей: ' + this.score);
         
         // Проверка на падение игрока
-        if (currentHeight < this.maxHeightReached - 600) {
+        if (currentHeight < this.maxHeightReached - 1600) {
             if (!this.gameOver) {
                 this.gameOver = true;
                 this.player.skeleton.color.r = 1;
@@ -523,10 +523,10 @@ class GameScene extends Phaser.Scene {
             return;
         }
         
-        // Удаление платформ, которые находятся ниже игрока на 500 единиц
+        // Удаление платформ, которые находятся ниже игрока на 1500 единиц
         this.allPlatforms.forEach(group => {
             group.getChildren().forEach(platform => {
-                if (platform.y > this.player.y + 500) {
+                if (platform.y > this.player.y + 1500) {
                     if (platform.item) {
                         if (platform.item.glow && platform.item.glow.active) {
                             platform.item.glow.destroy();
@@ -561,7 +561,7 @@ class GameScene extends Phaser.Scene {
             this.jumpPressed = true;
         }
         
-        const cameraTargetY = Math.round(this.player.y) - 350;
+        const cameraTargetY = Math.round(this.player.y) - 600;
         
         const smoothFactor = 0.1;
         
@@ -615,7 +615,7 @@ class GameScene extends Phaser.Scene {
         if (cleanupCheckpoint > this.lastCleanupCheckpoint) {
             this.lastCleanupCheckpoint = cleanupCheckpoint;
             
-            const cleanupThreshold = this.cameras.main.scrollY + 800;
+            const cleanupThreshold = this.cameras.main.scrollY + 1500;
             
             this.allPlatforms.forEach(group => {
                 group.getChildren().forEach(platform => {
@@ -969,10 +969,10 @@ class GameScene extends Phaser.Scene {
     createUI() {
         this.scoreText = this.add.text(16, 16, 'Предел твоих возможностей: 0', { 
             fontFamily: 'unutterable',
-            fontSize: '20px', 
+            fontSize: '28px', 
             fill: '#fff',
             stroke: '#000',
-            strokeThickness: 3
+            strokeThickness: 4
         });
         this.scoreText.setScrollFactor(0);
         this.scoreText.setDepth(1000); // Устанавливаем высокое значение глубины, чтобы текст был поверх всех объектов
@@ -980,23 +980,23 @@ class GameScene extends Phaser.Scene {
         // Добавляем отображение времени игры в правом верхнем углу
         this.gameTimeText = this.add.text(650, 16, '00:00', {
             fontFamily: 'unutterable',
-            fontSize: '20px',
+            fontSize: '28px',
             fill: '#ffffff',
             align: 'right',
             stroke: '#000000',
-            strokeThickness: 3
+            strokeThickness: 4
         }).setOrigin(0, 0).setScrollFactor(0).setDepth(1000);
         
         // Добавляем кнопку паузы в правый верхний угол
         const pauseButton = this.add.image(780, 40, 'button-bg')
-            .setScale(0.3)
+            .setScale(0.5)
             .setInteractive()
             .setDepth(1000)
             .setScrollFactor(0); // Чтобы кнопка оставалась на месте при прокрутке
 
         const pauseText = this.add.text(780, 40, 'II', {
             fontFamily: 'unutterable',
-            fontSize: '32px',
+            fontSize: '40px',
             color: '#00FFFF',
             align: 'center'
         }).setOrigin(0.5).setDepth(1000).setScrollFactor(0);
@@ -1026,7 +1026,7 @@ class GameScene extends Phaser.Scene {
 
     createMobileControls() {
         if (!this.sys.game.device.os.desktop) {
-            const leftZone = this.add.zone(150, 400, 200, 400);
+            const leftZone = this.add.zone(150, 850, 250, 800);
             leftZone.setScrollFactor(0);
             leftZone.setInteractive();
             leftZone.on('pointerdown', () => {
@@ -1036,7 +1036,7 @@ class GameScene extends Phaser.Scene {
                 this.leftPressed = false;
             });
             
-            const rightZone = this.add.zone(650, 400, 200, 400);
+            const rightZone = this.add.zone(650, 850, 250, 800);
             rightZone.setScrollFactor(0);
             rightZone.setInteractive();
             rightZone.on('pointerdown', () => {
@@ -1046,7 +1046,7 @@ class GameScene extends Phaser.Scene {
                 this.rightPressed = false;
             });
             
-            const jumpButton = this.add.circle(700, 500, 40, 0x4de9e7, 0.7);
+            const jumpButton = this.add.circle(700, 1100, 60, 0x4de9e7, 0.7);
             jumpButton.setScrollFactor(0);
             jumpButton.setInteractive();
             jumpButton.on('pointerdown', () => {
@@ -1056,9 +1056,9 @@ class GameScene extends Phaser.Scene {
                 this.jumpPressed = false;
             });
             
-            const jumpText = this.add.text(700, 500, "П", {
+            const jumpText = this.add.text(700, 1100, "П", {
                 fontFamily: 'unutterable',
-                fontSize: '32px',
+                fontSize: '48px',
                 fill: '#fff'
             }).setOrigin(0.5);
             jumpText.setScrollFactor(0);
@@ -2918,7 +2918,7 @@ class GameScene extends Phaser.Scene {
         }
         
         // Создаем круглый фон для иконки
-        const iconBg = this.add.circle(20, 20, 20, bgColor, 0.8).setOrigin(0.5);
+        const iconBg = this.add.circle(30, 30, 30, bgColor, 0.8).setOrigin(0.5);
         effectContainer.add(iconBg);
         
         // Создаем иконку эффекта
@@ -2929,8 +2929,8 @@ class GameScene extends Phaser.Scene {
             iconKey = `item_${effect.type.split('_')[0]}_${effect.type.split('_')[1]}`;
         }
         
-        const icon = this.add.image(20, 20, iconKey).setOrigin(0.5);
-        icon.setScale(0.4);
+        const icon = this.add.image(30, 30, iconKey).setOrigin(0.5);
+        icon.setScale(0.6);
         effectContainer.add(icon);
         
         // Добавляем индикатор оставшегося времени в виде круговой полосы
@@ -2977,14 +2977,14 @@ class GameScene extends Phaser.Scene {
             timerArc.clear();
             
             // Рисуем серую полную окружность (фон)
-            timerArc.lineStyle(3, 0x666666, 0.5);
-            timerArc.strokeCircle(20, 20, 22);
+            timerArc.lineStyle(4, 0x666666, 0.5);
+            timerArc.strokeCircle(30, 30, 33);
             
             // Рисуем белую дугу, показывающую оставшееся время
             if (progress > 0) {
-                timerArc.lineStyle(3, 0xFFFFFF, 1);
+                timerArc.lineStyle(4, 0xFFFFFF, 1);
                 timerArc.beginPath();
-                timerArc.arc(20, 20, 22, Phaser.Math.DegToRad(270), Phaser.Math.DegToRad(270 + 360 * progress), false);
+                timerArc.arc(30, 30, 33, Phaser.Math.DegToRad(270), Phaser.Math.DegToRad(270 + 360 * progress), false);
                 timerArc.strokePath();
             }
         }
@@ -2996,7 +2996,7 @@ class GameScene extends Phaser.Scene {
         
         effectIds.forEach((id, index) => {
             const container = this.effectsUI[id].container;
-            container.x = index * 50;
+            container.x = index * 70;
             container.y = 0;
         });
     }
@@ -3010,11 +3010,11 @@ class GameScene extends Phaser.Scene {
         // Создаем текстовое сообщение для мгновенных эффектов
         const text = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 100, message, {
             fontFamily: 'unutterable',
-            fontSize: '24px',
+            fontSize: '32px',
             color: this.rgbToHex(color),
             align: 'center',
             stroke: '#000000',
-            strokeThickness: 3
+            strokeThickness: 4
         }).setOrigin(0.5);
         text.setScrollFactor(0);
         text.setDepth(200);
@@ -3071,12 +3071,12 @@ class GameScene extends Phaser.Scene {
         const doubleJumpContainer = this.add.container(0, 0);
         
         // Создаем круглый фон для иконки
-        const iconBg = this.add.circle(20, 20, 20, 0x0066cc, 0.8).setOrigin(0.5);
+        const iconBg = this.add.circle(30, 30, 30, 0x0066cc, 0.8).setOrigin(0.5);
         doubleJumpContainer.add(iconBg);
         
         // Создаем иконку эффекта
-        const icon = this.add.image(20, 20, 'double_jump').setOrigin(0.5);
-        icon.setScale(0.4);
+        const icon = this.add.image(30, 30, 'double_jump').setOrigin(0.5);
+        icon.setScale(0.6);
         doubleJumpContainer.add(icon);
         
         // Добавляем индикатор кулдауна в виде круговой полосы
@@ -3117,14 +3117,14 @@ class GameScene extends Phaser.Scene {
                 timerArc.clear();
                 
                 // Рисуем серую полную окружность (фон)
-                timerArc.lineStyle(3, 0x666666, 0.5);
-                timerArc.strokeCircle(20, 20, 22);
+                timerArc.lineStyle(4, 0x666666, 0.5);
+                timerArc.strokeCircle(30, 30, 33);
                 
                 // Рисуем белую дугу, показывающую оставшееся время
                 if (progress > 0) {
-                    timerArc.lineStyle(3, 0xFFFFFF, 1);
+                    timerArc.lineStyle(4, 0xFFFFFF, 1);
                     timerArc.beginPath();
-                    timerArc.arc(20, 20, 22, Phaser.Math.DegToRad(270), Phaser.Math.DegToRad(270 + 360 * progress), false);
+                    timerArc.arc(30, 30, 33, Phaser.Math.DegToRad(270), Phaser.Math.DegToRad(270 + 360 * progress), false);
                     timerArc.strokePath();
                 }
             } else {
@@ -3134,8 +3134,8 @@ class GameScene extends Phaser.Scene {
                 this.doubleJumpUI.timerArc.clear();
                 
                 // Рисуем полную окружность
-                this.doubleJumpUI.timerArc.lineStyle(3, 0xFFFFFF, 0.5);
-                this.doubleJumpUI.timerArc.strokeCircle(20, 20, 22);
+                this.doubleJumpUI.timerArc.lineStyle(4, 0xFFFFFF, 0.5);
+                this.doubleJumpUI.timerArc.strokeCircle(30, 30, 33);
             }
         }
     }
@@ -3149,7 +3149,7 @@ class GameScene extends Phaser.Scene {
         if (this.doubleJumpUI) {
             this.doubleJumpUI.container.x = xPosition;
             this.doubleJumpUI.container.y = 0;
-            xPosition += 50;
+            xPosition += 70;
         }
         
         // Затем размещаем все активные эффекты
@@ -3158,7 +3158,7 @@ class GameScene extends Phaser.Scene {
             const container = this.effectsUI[id].container;
             container.x = xPosition;
             container.y = 0;
-            xPosition += 50;
+            xPosition += 70;
         });
     }
 

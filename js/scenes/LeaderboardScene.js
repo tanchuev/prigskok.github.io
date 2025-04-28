@@ -6,7 +6,7 @@ class LeaderboardScene extends Phaser.Scene {
         // Инициализация dreamlo
         this.dreamloPublicKey = "680ed22b8f40bb18ac70df27";
         this.dreamloPrivateKey ="WJRxP_ErZ0uLBvmSL6uXBgdwIykOMp6kmqlN69KlSiuA";
-        this.useHttps = false;
+        this.useHttps = true;
         
         // Для хранения UI элементов лидерборда
         this.leaderboardElements = [];
@@ -21,10 +21,10 @@ class LeaderboardScene extends Phaser.Scene {
 
     create() {
         // Фон
-        this.add.image(400, 300, 'background');
+        this.add.image(400, 640, 'background');
         
         // Заголовок
-        this.add.text(400, 80, 'ЛИДЕРБОРД', {
+        this.add.text(400, 150, 'ЛИДЕРБОРД', {
             fontFamily: 'unutterable',
             fontSize: '48px',
             fill: '#ffffff',
@@ -34,7 +34,7 @@ class LeaderboardScene extends Phaser.Scene {
         }).setOrigin(0.5);
         
         // Индикатор загрузки
-        this.loadingText = this.add.text(400, 280, 'Загрузка лидерборда...', {
+        this.loadingText = this.add.text(400, 350, 'Загрузка лидерборда...', {
             fontFamily: 'unutterable',
             fontSize: '24px',
             fill: '#888888',
@@ -45,7 +45,7 @@ class LeaderboardScene extends Phaser.Scene {
         this.loadLeaderboard();
         
         // Кнопка "Назад"
-        const backButton = this.add.text(400, 530, 'НАЗАД', {
+        const backButton = this.add.text(400, 860, 'НАЗАД', {
             fontFamily: 'unutterable',
             fontSize: '24px',
             fill: '#ffffff',
@@ -162,7 +162,7 @@ class LeaderboardScene extends Phaser.Scene {
         
         // Если данных нет
         if (!this.scores || this.scores.length === 0) {
-            const noResultsText = this.add.text(400, 280, 'Пока нет результатов', {
+            const noResultsText = this.add.text(400, 350, 'Пока нет результатов', {
                 fontFamily: 'unutterable',
                 fontSize: '24px',
                 fill: '#888888',
@@ -178,7 +178,7 @@ class LeaderboardScene extends Phaser.Scene {
         
         // Заголовки таблицы
         this.leaderboardElements.push(
-            this.add.text(100, 150, 'МЕСТО', {
+            this.add.text(100, 250, 'МЕСТО', {
                 fontFamily: 'unutterable',
                 fontSize: '24px',
                 fill: '#aaaaaa'
@@ -186,7 +186,7 @@ class LeaderboardScene extends Phaser.Scene {
         );
         
         this.leaderboardElements.push(
-            this.add.text(220, 150, 'ИГРОК', {
+            this.add.text(220, 250, 'ИГРОК', {
                 fontFamily: 'unutterable',
                 fontSize: '24px',
                 fill: '#aaaaaa'
@@ -194,7 +194,7 @@ class LeaderboardScene extends Phaser.Scene {
         );
         
         this.leaderboardElements.push(
-            this.add.text(400, 150, 'ВЫСОТА', {
+            this.add.text(400, 250, 'ВЫСОТА', {
                 fontFamily: 'unutterable',
                 fontSize: '24px',
                 fill: '#aaaaaa'
@@ -202,7 +202,7 @@ class LeaderboardScene extends Phaser.Scene {
         );
         
         this.leaderboardElements.push(
-            this.add.text(530, 150, 'ВРЕМЯ', {
+            this.add.text(530, 250, 'ВРЕМЯ', {
                 fontFamily: 'unutterable',
                 fontSize: '24px',
                 fill: '#aaaaaa'
@@ -210,7 +210,7 @@ class LeaderboardScene extends Phaser.Scene {
         );
         
         this.leaderboardElements.push(
-            this.add.text(650, 150, 'ДАТА', {
+            this.add.text(650, 250, 'ДАТА', {
                 fontFamily: 'unutterable',
                 fontSize: '24px',
                 fill: '#aaaaaa'
@@ -224,7 +224,7 @@ class LeaderboardScene extends Phaser.Scene {
         const maxDisplay = Math.min(10, this.scores.length);
         for (let i = 0; i < maxDisplay; i++) {
             const score = this.scores[i];
-            const y = 190 + i * 30;
+            const y = 300 + i * 35;
             
             // Для dreamlo записей, используем поле text как имя игрока, если оно есть
             const playerName = score.text || score.name;

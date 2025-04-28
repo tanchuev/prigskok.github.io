@@ -5,7 +5,7 @@ class BootScene extends Phaser.Scene {
 
     preload() {
         // Создаем текст загрузки
-        const loadingText = this.add.text(400, 300, 'Загрузка...', {
+        const loadingText = this.add.text(400, 640, 'Загрузка...', {
             fontFamily: 'unutterable',
             fontSize: '32px',
             fill: '#ffffff'
@@ -16,13 +16,13 @@ class BootScene extends Phaser.Scene {
         const progressBar = this.add.graphics();
         const progressBox = this.add.graphics();
         progressBox.fillStyle(0x222222, 0.8);
-        progressBox.fillRect(240, 320, 320, 50);
+        progressBox.fillRect(240, 660, 320, 50);
         
         // Отображаем прогресс загрузки
         this.load.on('progress', function (value) {
             progressBar.clear();
             progressBar.fillStyle(0xffffff, 1);
-            progressBar.fillRect(250, 330, 300 * value, 30);
+            progressBar.fillRect(250, 670, 300 * value, 30);
         });
         
         // Когда все ресурсы загружены, удаляем индикатор

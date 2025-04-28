@@ -9,10 +9,10 @@ class StartScene extends Phaser.Scene {
         window.musicManager.playMusic('main_theme');
         
         // Фон
-        this.add.image(400, 300, 'background');
+        this.add.image(400, 640, 'background');
         
         // Заголовок игры
-        const title = this.add.text(400, 150, 'ПРЫГ-СКОК', {
+        const title = this.add.text(400, 300, 'ПРЫГ-СКОК', {
             fontFamily: 'unutterable',
             fontSize: '64px',
             fill: '#8B0000',
@@ -25,7 +25,7 @@ class StartScene extends Phaser.Scene {
         // Отображаем имя игрока, если оно есть
         const nickname = this.getCookie('playerNickname');
         if (nickname) {
-            this.add.text(350, 250, `Игрок: ${nickname}`, {
+            this.add.text(350, 400, `Игрок: ${nickname}`, {
                 fontFamily: 'unutterable',
                 fontSize: '24px',
                 fill: '#ffff88',
@@ -34,7 +34,7 @@ class StartScene extends Phaser.Scene {
             }).setOrigin(0.5, 0.5);
             
             // Кнопка редактирования никнейма
-            const editButton = this.add.text(480, 250, 'ИЗМЕНИТЬ', {
+            const editButton = this.add.text(480, 400, 'ИЗМЕНИТЬ', {
                 fontFamily: 'unutterable',
                 fontSize: '18px',
                 fill: '#ffffff',
@@ -69,7 +69,7 @@ class StartScene extends Phaser.Scene {
         }
         
         // Кнопка начала игры
-        const startButton = this.add.text(400, 320, 'НАЧАТЬ ИГРУ', {
+        const startButton = this.add.text(400, 550, 'НАЧАТЬ ИГРУ', {
             fontFamily: 'unutterable',
             fontSize: '32px',
             fill: '#ffffff',
@@ -85,7 +85,7 @@ class StartScene extends Phaser.Scene {
         startButton.setInteractive();
         
         // Кнопка лидерборда
-        const leaderboardButton = this.add.text(400, 400, 'ЛИДЕРБОРД', {
+        const leaderboardButton = this.add.text(400, 650, 'ЛИДЕРБОРД', {
             fontFamily: 'unutterable',
             fontSize: '28px',
             fill: '#ffffff',
@@ -134,7 +134,7 @@ class StartScene extends Phaser.Scene {
         });
         
         // Кнопка для показа существ - скрыта
-        const creaturesButton = this.add.text(400, 440, 'Хэллоуинские Существа', {
+        const creaturesButton = this.add.text(400, 750, 'Хэллоуинские Существа', {
             fontFamily: 'unutterable',
             fontSize: '26px',
             fill: '#ffffff',
@@ -155,7 +155,7 @@ class StartScene extends Phaser.Scene {
         
         // Создаем текст с инструкциями
         for (let i = 0; i < instructions.length; i++) {
-            this.add.text(400, 490 + i * 30, instructions[i], {
+            this.add.text(400, 950 + i * 30, instructions[i], {
                 fontFamily: 'unutterable',
                 fontSize: '14px',
                 fill: '#888888',
@@ -167,7 +167,7 @@ class StartScene extends Phaser.Scene {
         // Анимация названия
         this.tweens.add({
             targets: title,
-            y: 170,
+            y: 320,
             duration: 1500,
             ease: 'Sine.easeInOut',
             yoyo: true,

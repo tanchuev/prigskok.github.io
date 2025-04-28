@@ -2,8 +2,22 @@
 const config = {
     type: Phaser.AUTO,
     width: 800,
-    height: 600,
+    height: 1280,
     parent: 'game-container',
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: 800,
+        height: 1000,
+        min: {
+            width: 320,
+            height: 480
+        },
+        max: {
+            width: 1600,
+            height: 2560
+        }
+    },
     physics: {
         default: 'arcade',
         arcade: {
@@ -52,22 +66,22 @@ function preload() {
 // Создание игровых объектов
 function create() {
     // Фон
-    this.add.image(400, 300, 'sky');
+    this.add.image(400, 640, 'sky');
     
     // Платформы
     platforms = this.physics.add.staticGroup();
     
     // Создаем начальную платформу
-    platforms.create(400, 568, 'ground').setScale(2).refreshBody();
+    platforms.create(400, 1248, 'ground').setScale(2).refreshBody();
     
     // Создаем несколько платформ
-    platforms.create(600, 450, 'ground');
-    platforms.create(50, 350, 'ground');
-    platforms.create(750, 250, 'ground');
-    platforms.create(400, 150, 'ground');
+    platforms.create(600, 1000, 'ground');
+    platforms.create(50, 800, 'ground');
+    platforms.create(750, 600, 'ground');
+    platforms.create(400, 400, 'ground');
     
     // Создаем игрока
-    player = this.physics.add.sprite(400, 450, 'player');
+    player = this.physics.add.sprite(400, 1000, 'player');
     player.setBounce(0.2);
     player.setCollideWorldBounds(true);
     
@@ -81,7 +95,7 @@ function create() {
     this.scoreText = this.add.text(16, 16, 'Высота: 0', { fontFamily: 'unutterable', fontSize: '32px', fill: '#fff' });
     
     // Уровень затопления
-    this.floodRect = this.add.rectangle(400, 600, 800, 10, 0x0000ff);
+    this.floodRect = this.add.rectangle(400, 1280, 800, 10, 0x0000ff);
 }
 
 // Обновление игры
@@ -91,7 +105,7 @@ function update() {
     }
     
     // Обновляем счет в зависимости от высоты
-    const playerHeight = 600 - player.y;
+    const playerHeight = 1280 - player.y;
     score = Math.max(score, Math.floor(playerHeight));
     this.scoreText.setText('Высота: ' + score);
     
@@ -110,16 +124,16 @@ function update() {
     }
     
     // Проверка проигрыша (если игрок падает ниже затопления)
-    if (player.y > 600 - this.floodRect.height) {
+    if (player.y > 1280 - this.floodRect.height) {
         this.physics.pause();
         player.setTint(0xff0000);
         gameOver = true;
-        this.add.text(400, 300, 'Игра окончена', { fontFamily: 'unutterable', fontSize: '48px', fill: '#fff' }).setOrigin(0.5);
-        this.add.text(400, 350, 'Нажмите F5 для перезапуска', { fontFamily: 'unutterable', fontSize: '24px', fill: '#fff' }).setOrigin(0.5);
+        this.add.text(400, 640, 'Игра окончена', { fontFamily: 'unutterable', fontSize: '48px', fill: '#fff' }).setOrigin(0.5);
+        this.add.text(400, 700, 'Нажмите F5 для перезапуска', { fontFamily: 'unutterable', fontSize: '24px', fill: '#fff' }).setOrigin(0.5);
     }
     
     // Медленно поднимаем уровень затопления
     floodLevel += floodSpeed;
     this.floodRect.height = floodLevel;
-    this.floodRect.y = 600 - floodLevel / 2;
+    this.floodRect.y = 1280 - floodLevel / 2;
 } 

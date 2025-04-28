@@ -6,10 +6,10 @@ class CharacterSelectScene extends Phaser.Scene {
 
     create() {
         // Фон
-        this.add.image(400, 300, 'background');
+        this.add.image(400, 640, 'background');
         
         // Заголовок
-        const title = this.add.text(400, 180, 'ВЫБЕРИТЕ ПЕРСОНАЖА', {
+        const title = this.add.text(400, 300, 'ВЫБЕРИТЕ ПЕРСОНАЖА', {
             fontFamily: 'unutterable',
             fontSize: '36px',
             fill: '#ffffff',
@@ -21,10 +21,10 @@ class CharacterSelectScene extends Phaser.Scene {
         
         // Контейнеры для персонажей
         const characters = [
-            { name: 'pumpkin', displayName: 'Тыква', x: 160, y: 300 },
-            { name: 'frank', displayName: 'Франкенштейн', x: 320, y: 300 },
-            { name: 'witch', displayName: 'Ведьма', x: 480, y: 300 },
-            { name: 'skull', displayName: 'Череп', x: 640, y: 300 }
+            { name: 'pumpkin', displayName: 'Тыква', x: 160, y: 500 },
+            { name: 'frank', displayName: 'Франкенштейн', x: 320, y: 500 },
+            { name: 'witch', displayName: 'Ведьма', x: 480, y: 500 },
+            { name: 'skull', displayName: 'Череп', x: 640, y: 500 }
         ];
         
         // Создаем контейнеры и персонажей
@@ -35,21 +35,21 @@ class CharacterSelectScene extends Phaser.Scene {
             const container = this.add.container(char.x, char.y);
             
             // Фон для персонажа
-            const bg = this.add.circle(0, 0, 60, 0x000000, 0.3);
+            const bg = this.add.circle(0, 0, 72, 0x000000, 0.3);
             container.add(bg);
             
             // Добавляем спрайт персонажа (Spine) со смещением по Y для центрирования
             const character = this.add.spine(0, 20, 'halloween-creature', 'halloween-creature-atlas'); // Сдвигаем немного вниз
-            character.setScale(0.06);
+            character.setScale(0.12);
             character.skeleton.setSkinByName(char.name);
             character.skeleton.setSlotsToSetupPose();
             character.animationState.setAnimation(0, 'idle', true);
             container.add(character);
             
             // Добавляем текст с именем персонажа
-            const nameText = this.add.text(0, 70, char.displayName, {
+            const nameText = this.add.text(0, 90, char.displayName, {
                 fontFamily: 'unutterable',
-                fontSize: '18px',
+                fontSize: '22px',
                 fill: '#ffffff',
                 stroke: '#000000',
                 strokeThickness: 3
@@ -58,7 +58,7 @@ class CharacterSelectScene extends Phaser.Scene {
             container.add(nameText);
             
             // Делаем КОНТЕЙНЕР интерактивным (вместо bg)
-            container.setInteractive(new Phaser.Geom.Circle(0, 0, 60), Phaser.Geom.Circle.Contains);
+            container.setInteractive(new Phaser.Geom.Circle(0, 0, 72), Phaser.Geom.Circle.Contains);
             
             // Эффекты при наведении (слушатель на КОНТЕЙНЕРЕ)
             container.on('pointerover', () => {
@@ -93,16 +93,16 @@ class CharacterSelectScene extends Phaser.Scene {
         this.selectCharacter(this.selectedCharacter);
         
         // Кнопка "Играть"
-        const playButton = this.add.text(400, 520, 'ИГРАТЬ', {
+        const playButton = this.add.text(400, 700, 'ИГРАТЬ', {
             fontFamily: 'unutterable',
-            fontSize: '32px',
+            fontSize: '36px',
             fill: '#ffffff',
             backgroundColor: '#338833',
             stroke: '#000000',
-            strokeThickness: 4,
+            strokeThickness: 5,
             padding: {
-                x: 20,
-                y: 10
+                x: 32,
+                y: 16
             }
         });
         playButton.setOrigin(0.5);

@@ -12,11 +12,11 @@ class NicknameScene extends Phaser.Scene {
 
     create() {
         // Фон
-        this.add.image(400, 300, 'background');
+        this.add.image(400, 640, 'background');
         
         // Заголовок - меняем в зависимости от контекста
         const headerText = this.isEditing ? 'ИЗМЕНИТЬ ИМЯ' : 'КАК ТЕБЯ ЗОВУТ?';
-        this.add.text(400, 150, headerText, {
+        this.add.text(400, 400, headerText, {
             fontFamily: 'unutterable',
             fontSize: '48px',
             fill: '#ffffff',
@@ -34,12 +34,12 @@ class NicknameScene extends Phaser.Scene {
         // Поле ввода (визуальное представление)
         const inputBox = this.add.graphics();
         inputBox.fillStyle(0x222222, 0.8);
-        inputBox.fillRoundedRect(250, 250, 300, 60, 10);
+        inputBox.fillRoundedRect(250, 500, 300, 60, 10);
         inputBox.lineStyle(2, 0xaaaaaa);
-        inputBox.strokeRoundedRect(250, 250, 300, 60, 10);
+        inputBox.strokeRoundedRect(250, 500, 300, 60, 10);
         
         // Текст внутри поля ввода
-        this.inputText = this.add.text(400, 280, this.nickname, {
+        this.inputText = this.add.text(400, 530, this.nickname, {
             fontFamily: 'unutterable',
             fontSize: '24px',
             fill: '#ffffff',
@@ -47,7 +47,7 @@ class NicknameScene extends Phaser.Scene {
         }).setOrigin(0.5);
         
         // Делаем поле интерактивным
-        inputBox.setInteractive(new Phaser.Geom.Rectangle(250, 250, 300, 60), Phaser.Geom.Rectangle.Contains);
+        inputBox.setInteractive(new Phaser.Geom.Rectangle(250, 500, 300, 60), Phaser.Geom.Rectangle.Contains);
         
         // Обработчик кликов по полю
         inputBox.on('pointerdown', () => {
@@ -56,7 +56,7 @@ class NicknameScene extends Phaser.Scene {
         
         // Кнопка "Продолжить" - меняем текст в зависимости от контекста
         const continueText = this.isEditing ? 'СОХРАНИТЬ' : 'ПРОДОЛЖИТЬ';
-        const continueButton = this.add.text(400, 350, continueText, {
+        const continueButton = this.add.text(400, 600, continueText, {
             fontFamily: 'unutterable',
             fontSize: '28px',
             fill: '#ffffff',
@@ -87,23 +87,23 @@ class NicknameScene extends Phaser.Scene {
                 // Визуальная подсказка, если имя не введено
                 inputBox.clear();
                 inputBox.fillStyle(0x662222, 0.8);
-                inputBox.fillRoundedRect(250, 250, 300, 60, 10);
+                inputBox.fillRoundedRect(250, 500, 300, 60, 10);
                 inputBox.lineStyle(2, 0xff0000);
-                inputBox.strokeRoundedRect(250, 250, 300, 60, 10);
+                inputBox.strokeRoundedRect(250, 500, 300, 60, 10);
                 
                 setTimeout(() => {
                     inputBox.clear();
                     inputBox.fillStyle(0x222222, 0.8);
-                    inputBox.fillRoundedRect(250, 250, 300, 60, 10);
+                    inputBox.fillRoundedRect(250, 500, 300, 60, 10);
                     inputBox.lineStyle(2, 0xaaaaaa);
-                    inputBox.strokeRoundedRect(250, 250, 300, 60, 10);
+                    inputBox.strokeRoundedRect(250, 500, 300, 60, 10);
                 }, 300);
             }
         });
         
         // Кнопка "Назад" (только при редактировании)
         if (this.isEditing) {
-            const backButton = this.add.text(400, 410, 'ОТМЕНА', {
+            const backButton = this.add.text(400, 680, 'ОТМЕНА', {
                 fontFamily: 'unutterable',
                 fontSize: '22px',
                 fill: '#ffffff',
